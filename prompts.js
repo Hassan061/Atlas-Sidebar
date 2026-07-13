@@ -303,14 +303,14 @@
   }
 
   function promptError(code, details = {}) {
-    const error = new Error(formatError({ code, details }, "zh-CN"));
+    const error = new Error(formatError({ code, details }, "en"));
     error.name = "AtlasPromptError";
     error.code = code;
     error.details = details;
     return error;
   }
 
-  function formatError(error, language = "zh-CN") {
+  function formatError(error, language = "en") {
     const locale = language === "zh-CN" ? "zh-CN" : "en";
     const template = ERROR_COPY[locale][error?.code];
     if (typeof template === "function") return template(error?.details || {});

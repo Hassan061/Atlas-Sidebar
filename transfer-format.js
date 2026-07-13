@@ -36,7 +36,7 @@ const COPY = Object.freeze({
 
 globalThis.AtlasTransfer = Object.freeze({
   buildBundle(items, options = {}) {
-    const language = !options.language || options.language === "zh-CN" ? "zh-CN" : "en";
+    const language = options.language === "zh-CN" ? "zh-CN" : "en";
     const copy = COPY[language];
     const forceSelectedIds = new Set(
       Array.isArray(options.forceSelectedIds) ? options.forceSelectedIds : []
@@ -165,7 +165,7 @@ globalThis.AtlasTransfer = Object.freeze({
     return this.buildBundle(items).composerText;
   },
 
-  formatError(error, language = "zh-CN") {
+  formatError(error, language = "en") {
     const copy = COPY[language === "zh-CN" ? "zh-CN" : "en"];
     if (error?.code === "composerTooLong") return copy.tooLong(error.details || {});
     return error instanceof Error ? error.message : String(error || "");

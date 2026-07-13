@@ -22,7 +22,7 @@
   const TOOLBAR_THEMES = Object.freeze(["classic", "ocean", "graphite"]);
   const DEFAULTS = Object.freeze({
     version: 2,
-    uiLanguage: "zh-CN",
+    uiLanguage: "en",
     transcriptLanguage: "auto",
     captureOrder: FEATURE_IDS,
     toolbarMode: "system",

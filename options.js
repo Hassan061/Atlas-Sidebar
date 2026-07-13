@@ -374,7 +374,9 @@ function readForm() {
 }
 
 function applyLanguage(language) {
-  currentLanguage = AtlasSettings.UI_LANGUAGES.includes(language) ? language : "zh-CN";
+  currentLanguage = AtlasSettings.UI_LANGUAGES.includes(language)
+    ? language
+    : AtlasSettings.DEFAULTS.uiLanguage;
   const copy = COPY[currentLanguage];
   document.documentElement.lang = currentLanguage;
   document.title = `Atlas Sidebar · ${copy.title}`;

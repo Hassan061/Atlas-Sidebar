@@ -45,14 +45,14 @@ globalThis.AtlasUrl = Object.freeze({
     return url;
   },
 
-  formatError(error, language = "zh-CN") {
+  formatError(error, language = "en") {
     const locale = language === "zh-CN" ? "zh-CN" : "en";
     return ATLAS_URL_ERRORS[locale][error?.code] || (error instanceof Error ? error.message : String(error || ""));
   }
 });
 
 function urlError(code) {
-  const error = new Error(ATLAS_URL_ERRORS["zh-CN"][code]);
+  const error = new Error(ATLAS_URL_ERRORS.en[code]);
   error.name = "AtlasUrlError";
   error.code = code;
   return error;

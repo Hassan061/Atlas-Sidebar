@@ -11,7 +11,7 @@
     ko: { add: "선택한 텍스트를 Atlas Sidebar에 추가", adding: "추가 중", added: "추가됨", failed: "추가하지 못했습니다" },
     "pt-BR": { add: "Adicionar texto selecionado ao Atlas Sidebar", adding: "Adicionando", added: "Adicionado", failed: "Não foi possível adicionar" }
   };
-  let copy = labels["zh-CN"];
+  let copy = labels.en;
   let selectedText = "";
   let selectionTimer = 0;
   let pending = false;

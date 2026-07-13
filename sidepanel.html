@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -28,21 +28,21 @@
       </defs>
     </svg>
     <main class="app-shell">
-      <header class="browser-toolbar" aria-label="侧边栏浏览器工具栏">
-        <nav class="navigation-controls" aria-label="页面导航">
-          <button id="back" class="icon-button" type="button" aria-label="后退" title="上一条输入的网址">
+      <header class="browser-toolbar" aria-label="Sidebar browser toolbar">
+        <nav class="navigation-controls" aria-label="Page navigation">
+          <button id="back" class="icon-button" type="button" aria-label="Back" title="Previous entered address">
             <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-left" /></svg>
           </button>
-          <button id="forward" class="icon-button optional-forward" type="button" aria-label="前进" title="下一条输入的网址">
+          <button id="forward" class="icon-button optional-forward" type="button" aria-label="Forward" title="Next entered address">
             <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-right" /></svg>
           </button>
-          <button id="reload" class="icon-button" type="button" aria-label="刷新" title="重新加载">
+          <button id="reload" class="icon-button" type="button" aria-label="Reload" title="Reload page">
             <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-refresh" /></svg>
           </button>
         </nav>
 
         <form id="address-form" class="address-form">
-          <label class="sr-only" for="address">网址</label>
+          <label class="sr-only" for="address">Address</label>
           <div class="address-field">
             <input
               id="address"
@@ -50,25 +50,25 @@
               inputmode="url"
               autocomplete="url"
               spellcheck="false"
-              placeholder="输入网址"
+              placeholder="Enter a web address"
             />
-            <button class="go-button" type="submit" aria-label="打开网址" title="打开网址">
+            <button class="go-button" type="submit" aria-label="Open address" title="Open address">
               <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-arrow-right" /></svg>
             </button>
           </div>
         </form>
 
-        <button id="open-external" class="icon-button" type="button" aria-label="在标签页打开" title="在标签页打开">
+        <button id="open-external" class="icon-button" type="button" aria-label="Open in tab" title="Open in tab">
           <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-external-link" /></svg>
         </button>
         <button
           id="page-library-toggle"
           class="icon-button page-library-toggle"
           type="button"
-          aria-label="页面"
+          aria-label="Pages"
           aria-controls="page-library"
           aria-expanded="false"
-          title="页面"
+          title="Pages"
         >
           <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-pages" /></svg>
           <span id="page-library-badge" class="stage-badge" aria-hidden="true" hidden>0</span>
@@ -77,18 +77,18 @@
           id="stage-toggle"
           class="icon-button stage-toggle"
           type="button"
-          aria-label="临时素材"
+          aria-label="Temporary materials"
           aria-controls="staging-drawer"
           aria-expanded="false"
-          title="临时素材"
+          title="Temporary materials"
         >
           <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-inbox" /></svg>
           <span id="stage-badge" class="stage-badge" aria-hidden="true" hidden>0</span>
         </button>
-        <button id="open-settings" class="icon-button settings-button" type="button" aria-label="设置" title="设置">
+        <button id="open-settings" class="icon-button settings-button" type="button" aria-label="Settings" title="Settings">
           <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-settings" /></svg>
         </button>
-        <span id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true">准备就绪</span>
+        <span id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true">Ready</span>
       </header>
 
       <aside
@@ -101,38 +101,38 @@
       >
         <header class="staging-header">
           <div>
-            <h2 id="staging-title">临时素材</h2>
+            <h2 id="staging-title">Temporary materials</h2>
             <span
               id="staging-summary"
               role="status"
               aria-live="polite"
               aria-atomic="true"
-            >0 项</span>
+            >0 items</span>
           </div>
           <div class="staging-header-actions">
-            <button id="clear-staging" class="text-action" type="button">清空</button>
-            <button id="close-staging" class="drawer-close" type="button" aria-label="关闭临时素材">
+            <button id="clear-staging" class="text-action" type="button">Clear</button>
+            <button id="close-staging" class="drawer-close" type="button" aria-label="Close temporary materials">
               <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-x" /></svg>
             </button>
           </div>
         </header>
 
-        <div class="capture-actions" role="group" aria-label="添加当前页面内容">
+        <div class="capture-actions" role="group" aria-label="Add content from the current page">
           <span class="capture-feature" data-feature="link">
-            <button type="button" data-capture-kind="link">链接</button>
+            <button type="button" data-capture-kind="link">Link</button>
           </span>
           <span class="capture-feature" data-feature="screenshot">
-            <button type="button" data-capture-kind="screenshot">截图</button>
+            <button type="button" data-capture-kind="screenshot">Screenshot</button>
           </span>
           <span class="capture-feature" data-feature="document">
-            <label class="sr-only" for="document-source">文档来源</label>
+            <label class="sr-only" for="document-source">Document source</label>
             <select id="document-source" class="document-source" hidden>
-              <option value="">当前页面正文</option>
+              <option value="">Current page content</option>
             </select>
-            <button type="button" data-capture-kind="document">文档</button>
+            <button type="button" data-capture-kind="document">Document</button>
           </span>
           <span class="capture-feature" data-feature="local-file">
-            <button id="local-file" type="button">本地文件</button>
+            <button id="local-file" type="button">Local file</button>
             <input
               id="local-file-input"
               type="file"
@@ -141,25 +141,25 @@
             />
           </span>
           <span class="capture-feature" data-feature="prompt">
-            <button id="saved-prompts" type="button">提示词</button>
+            <button id="saved-prompts" type="button">Prompt</button>
           </span>
           <span class="capture-feature" data-feature="transcript">
-            <label class="sr-only" for="transcript-language">字幕语言</label>
+            <label class="sr-only" for="transcript-language">Transcript language</label>
             <select id="transcript-language" class="transcript-language" hidden>
-              <option value="">正在检测字幕…</option>
+              <option value="">Detecting transcripts…</option>
             </select>
-            <button type="button" data-capture-kind="transcript">字幕</button>
+            <button type="button" data-capture-kind="transcript">Transcript</button>
           </span>
         </div>
 
         <div id="staging-empty" class="staging-empty">
-          在网页中选中文字，右键添加到 Atlas Sidebar。
+          Select text on a page, then use the nearby + or right-click to add it.
         </div>
         <div
           id="staging-list"
           class="staging-list"
           role="list"
-          aria-label="临时素材列表"
+          aria-label="Temporary material list"
         ></div>
         <p
           id="staging-message"
@@ -171,20 +171,20 @@
 
         <footer class="staging-footer">
           <button id="copy-diagnostics" class="text-action" type="button">
-            复制诊断
+            Copy diagnostics
           </button>
           <div class="staging-primary-actions">
             <button id="copy-selected" class="secondary-action compact-secondary-action" type="button" disabled>
               <svg class="ui-icon button-icon" aria-hidden="true" focusable="false"><use href="#icon-copy" /></svg>
-              <span class="button-label">复制所选</span>
+              <span class="button-label">Copy selected</span>
             </button>
             <button id="download-selected" class="secondary-action compact-secondary-action" type="button" disabled>
               <svg class="ui-icon button-icon" aria-hidden="true" focusable="false"><use href="#icon-download" /></svg>
-              <span class="button-label">下载已选</span>
+              <span class="button-label">Download selected</span>
             </button>
             <button id="transfer-selected" class="transfer-button" type="button" disabled>
               <svg class="ui-icon button-icon" aria-hidden="true" focusable="false"><use href="#icon-message-plus" /></svg>
-              <span class="button-label">添加到 ChatGPT</span>
+              <span class="button-label">Add to ChatGPT</span>
             </button>
           </div>
         </footer>
@@ -194,55 +194,55 @@
         <div class="page-library-shell">
           <header class="page-library-header">
             <div>
-              <h2 id="page-library-title">页面</h2>
-              <p id="page-library-summary" class="sr-only">0 个已保存 · 0 条最近访问</p>
+              <h2 id="page-library-title">Pages</h2>
+              <p id="page-library-summary" class="sr-only">0 saved · 0 recent</p>
             </div>
-            <button id="close-page-library" class="drawer-close" type="button" aria-label="关闭页面列表">
+            <button id="close-page-library" class="drawer-close" type="button" aria-label="Close page list">
               <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-x" /></svg>
             </button>
           </header>
 
           <section class="page-library-current" aria-labelledby="current-page-heading">
             <div class="page-entry-copy">
-              <h3 id="current-page-heading">当前页面</h3>
+              <h3 id="current-page-heading">Current page</h3>
               <div class="current-page-meta">
                 <div class="current-page-title-line">
                   <strong id="current-page-title" class="current-page-source-title"></strong>
-                  <button id="edit-current-page-name" class="page-entry-edit-action current-page-edit-action" type="button" aria-label="自定义页面名称" title="自定义页面名称">
+                  <button id="edit-current-page-name" class="page-entry-edit-action current-page-edit-action" type="button" aria-label="Custom page name" title="Custom page name">
                     <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-edit" /></svg>
                   </button>
                 </div>
                 <span id="current-page-url"></span>
               </div>
-              <label class="sr-only" for="current-page-name">自定义页面名称</label>
+              <label class="sr-only" for="current-page-name">Custom page name</label>
               <div id="current-page-name-row" class="current-page-name-row" hidden>
                 <input id="current-page-name" class="current-page-name" type="text" maxlength="80" autocomplete="off" />
                 <button id="save-current-page-name" class="icon-button current-page-name-save" type="button">
                   <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-check" /></svg>
-                  <span class="button-label sr-only">保存名称</span>
+                  <span class="button-label sr-only">Save name</span>
                 </button>
-                <button id="cancel-current-page-name" class="icon-button current-page-name-save" type="button" aria-label="取消编辑" title="取消编辑">
+                <button id="cancel-current-page-name" class="icon-button current-page-name-save" type="button" aria-label="Cancel edit" title="Cancel edit">
                   <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-x" /></svg>
                 </button>
               </div>
             </div>
             <button id="save-current-page" class="secondary-action" type="button">
               <svg class="ui-icon button-icon" aria-hidden="true" focusable="false"><use href="#icon-bookmark" /></svg>
-              <span class="button-label">保存当前</span>
+              <span class="button-label">Save current</span>
             </button>
           </section>
 
           <div class="page-library-controls">
-            <label class="sr-only" for="page-library-search">搜索页面</label>
+            <label class="sr-only" for="page-library-search">Search pages</label>
             <input
               id="page-library-search"
               class="page-library-search"
               type="search"
               autocomplete="off"
-              placeholder="搜索名称、标题、域名或网址"
+              placeholder="Search names, titles, domains, or URLs"
             />
 
-            <div class="page-library-tabs" role="tablist" aria-label="页面范围">
+            <div class="page-library-tabs" role="tablist" aria-label="Page scope">
               <button
                 id="saved-pages-tab"
                 class="page-library-tab"
@@ -250,7 +250,7 @@
                 role="tab"
                 aria-selected="true"
                 aria-controls="page-library-list-panel"
-              ><span class="page-library-tab-label">已保存</span><span id="saved-pages-count">0</span></button>
+              ><span class="page-library-tab-label">Saved</span><span id="saved-pages-count">0</span></button>
               <button
                 id="recent-pages-tab"
                 class="page-library-tab"
@@ -258,27 +258,27 @@
                 role="tab"
                 aria-selected="false"
                 aria-controls="page-library-list-panel"
-              ><span class="page-library-tab-label">最近访问</span><span id="recent-pages-count">0</span></button>
+              ><span class="page-library-tab-label">Recent</span><span id="recent-pages-count">0</span></button>
             </div>
           </div>
 
           <section id="page-library-list-panel" class="page-library-list-panel" role="tabpanel" aria-labelledby="saved-pages-tab">
-            <p id="page-library-empty" class="page-library-empty">还没有保存页面。</p>
+            <p id="page-library-empty" class="page-library-empty">No saved pages yet.</p>
             <div id="page-library-list" class="page-library-list" role="list"></div>
           </section>
 
           <footer class="page-library-footer">
             <div class="page-library-footer-summary">
               <span id="page-library-list-summary"></span>
-              <span id="page-library-selected-count" hidden>已选 0</span>
+              <span id="page-library-selected-count" hidden>0 selected</span>
             </div>
             <div class="page-library-footer-actions">
-              <button id="select-all-page-results" class="text-action" type="button">全选当前结果</button>
-              <button id="view-all-recent-pages" class="text-action" type="button" hidden>查看全部</button>
-              <button id="clear-recent-pages" class="text-action" type="button" hidden>清空最近</button>
+              <button id="select-all-page-results" class="text-action" type="button">Select current results</button>
+              <button id="view-all-recent-pages" class="text-action" type="button" hidden>Show all</button>
+              <button id="clear-recent-pages" class="text-action" type="button" hidden>Clear recent</button>
               <button id="delete-selected-pages" class="secondary-action page-library-delete-selected" type="button" disabled hidden>
                 <svg class="ui-icon button-icon" aria-hidden="true" focusable="false"><use href="#icon-trash" /></svg>
-                <span class="button-label">删除所选</span>
+                <span class="button-label">Delete selected</span>
               </button>
             </div>
           </footer>
@@ -291,32 +291,32 @@
         <div class="prompt-picker-shell">
           <header class="prompt-picker-header">
             <div>
-              <h2 id="prompt-picker-title">常用提示词</h2>
-              <p id="prompt-picker-description">选择提示词；变量可先填，也可留到 ChatGPT 输入框中填写。</p>
+              <h2 id="prompt-picker-title">Saved prompts</h2>
+              <p id="prompt-picker-description">Choose a prompt. Fill variables now or leave them for the ChatGPT composer.</p>
             </div>
-            <button id="close-prompt-picker" class="drawer-close" type="button" aria-label="关闭提示词">
+            <button id="close-prompt-picker" class="drawer-close" type="button" aria-label="Close prompts">
               <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-x" /></svg>
             </button>
           </header>
-          <label class="sr-only" for="prompt-picker-search">搜索提示词</label>
-          <input id="prompt-picker-search" class="prompt-picker-search" type="search" placeholder="搜索名称、正文或标签" />
-          <div id="prompt-picker-empty" class="prompt-picker-empty">还没有保存提示词。</div>
-          <div id="prompt-picker-list" class="prompt-picker-list" role="listbox" aria-label="选择提示词"></div>
+          <label class="sr-only" for="prompt-picker-search">Search prompts</label>
+          <input id="prompt-picker-search" class="prompt-picker-search" type="search" placeholder="Search names, text, or tags" />
+          <div id="prompt-picker-empty" class="prompt-picker-empty">No saved prompts yet.</div>
+          <div id="prompt-picker-list" class="prompt-picker-list" role="listbox" aria-label="Choose a prompt"></div>
           <section id="prompt-variable-panel" class="prompt-variable-panel" hidden aria-labelledby="selected-prompt-name">
             <h3 id="selected-prompt-name"></h3>
             <p id="selected-prompt-preview"></p>
             <div id="prompt-variable-fields" class="prompt-variable-fields"></div>
-            <p id="prompt-variable-help" class="prompt-variable-help" hidden>变量可选；留空会保留占位符，可在 ChatGPT 输入框中填写。</p>
+            <p id="prompt-variable-help" class="prompt-variable-help" hidden>Variables are optional. Blank values stay as placeholders for the ChatGPT composer.</p>
           </section>
           <p id="prompt-picker-message" class="editor-error" role="alert"></p>
           <footer class="prompt-picker-actions">
-            <button id="manage-prompts" class="text-action" type="button">管理提示词</button>
-            <button id="add-saved-prompt" class="transfer-button" type="button" disabled>加入临时素材</button>
+            <button id="manage-prompts" class="text-action" type="button">Manage prompts</button>
+            <button id="add-saved-prompt" class="transfer-button" type="button" disabled>Add to materials</button>
           </footer>
         </div>
       </dialog>
 
-      <section class="viewport" aria-label="网页内容">
+      <section class="viewport" aria-label="Web content">
         <iframe
           id="browser-frame"
           title="Atlas Sidebar browser"
@@ -324,11 +324,11 @@
           allow="clipboard-read; clipboard-write; microphone; camera; fullscreen"
         ></iframe>
         <div id="error-panel" class="error-panel" hidden>
-          <strong id="error-title">这个页面暂时无法在侧边栏打开</strong>
+          <strong id="error-title">This page cannot be opened in the sidebar right now</strong>
           <p id="error-message"></p>
           <div class="error-actions">
-            <button id="error-retry" type="button">重试</button>
-            <button id="error-open-external" type="button">改在标签页打开</button>
+            <button id="error-retry" type="button">Retry</button>
+            <button id="error-open-external" type="button">Open in a tab instead</button>
           </div>
         </div>
       </section>
