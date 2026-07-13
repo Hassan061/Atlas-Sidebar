@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Atlas Sidebar",
+  "version": "0.27.0",
+  "description": "Personal local workspace for staging page content, prompts, documents, and transcripts before using AI.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "sidePanel",
+    "contextMenus",
+    "clipboardWrite",
+    "declarativeNetRequestWithHostAccess",
+    "activeTab",
+    "downloads",
+    "scripting",
+    "storage",
+    "tabs",
+    "windows"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "action": {
+    "default_title": "Open Atlas Sidebar",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "file:///*"],
+      "js": ["selection-bubble.js", "frame-navigation.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["chatgpt-bridge.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-src http: https:;"
+  }
+}

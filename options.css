@@ -1,0 +1,154 @@
+:root {
+  color-scheme: light dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: Canvas;
+  color: CanvasText;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: color-mix(in srgb, Canvas 96%, Highlight 4%); }
+button, select, input, textarea { font: inherit; }
+button { cursor: pointer; }
+.settings-shell { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 96px; }
+.settings-intro { margin-bottom: 24px; }
+.brand-lockup { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.brand-mark { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 11px; padding: 2px; background: #fff; object-fit: contain; }
+.eyebrow { margin: 0 0 6px; color: Highlight; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.brand-tagline { margin: 0; color: GrayText; font-size: 13px; }
+h1 { margin: 0; font-size: 30px; }
+.settings-intro > p:last-child, .section-heading p { color: GrayText; }
+.settings-intro > p:last-child { margin: 8px 0 0; }
+#settings-form { display: grid; gap: 16px; }
+.settings-card { border: 1px solid color-mix(in srgb, CanvasText 14%, transparent); border-radius: 14px; padding: 20px; background: Canvas; box-shadow: 0 8px 24px rgb(0 0 0 / 5%); }
+.section-heading { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+h2 { margin: 0; font-size: 17px; }
+.section-heading p { margin: 5px 0 0; font-size: 13px; }
+.field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 230px); align-items: center; gap: 20px; padding: 14px 0; border-top: 1px solid color-mix(in srgb, CanvasText 9%, transparent); }
+.field-row span { display: grid; gap: 4px; }
+.field-row small { color: GrayText; }
+select { min-height: 38px; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); border-radius: 8px; padding: 0 10px; background: Field; color: FieldText; }
+.prompt-heading { align-items: center; }
+.compact-button { min-height: 34px; white-space: nowrap; }
+.prompt-search input, .editor-field input, .editor-field textarea { width: 100%; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); border-radius: 9px; padding: 9px 11px; background: Field; color: FieldText; }
+.prompt-search input { min-height: 40px; }
+.prompt-library { display: grid; gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+.prompt-library-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; border: 1px solid color-mix(in srgb, CanvasText 12%, transparent); border-radius: 10px; padding: 12px; background: color-mix(in srgb, Canvas 97%, CanvasText 3%); }
+.prompt-library-copy { min-width: 0; }
+.prompt-library-name { margin: 0; font-size: 14px; }
+.prompt-library-preview { display: -webkit-box; overflow: hidden; margin: 5px 0 0; color: GrayText; font-size: 12px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.prompt-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.prompt-tag { border-radius: 999px; padding: 2px 7px; background: color-mix(in srgb, Highlight 12%, transparent); color: color-mix(in srgb, Highlight 78%, CanvasText); font-size: 10px; }
+.prompt-library-actions { display: flex; align-items: start; gap: 4px; }
+.prompt-library-actions button { min-width: 32px; height: 32px; border: 0; border-radius: 7px; background: transparent; color: CanvasText; }
+.prompt-library-actions button:hover { background: color-mix(in srgb, CanvasText 8%, transparent); }
+.library-empty { margin: 18px 0; border: 1px dashed color-mix(in srgb, CanvasText 18%, transparent); border-radius: 10px; padding: 20px; color: GrayText; text-align: center; }
+.library-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, CanvasText 9%, transparent); }
+.library-actions > span { flex: 1; color: GrayText; font-size: 12px; }
+.prompt-editor { width: min(620px, calc(100% - 28px)); max-height: min(760px, calc(100% - 28px)); border: 1px solid color-mix(in srgb, CanvasText 18%, transparent); border-radius: 16px; padding: 0; background: Canvas; color: CanvasText; box-shadow: 0 22px 60px rgb(0 0 0 / 28%); }
+.prompt-editor::backdrop { background: rgb(0 0 0 / 42%); backdrop-filter: blur(2px); }
+#prompt-editor-form { display: grid; gap: 16px; padding: 22px; }
+.dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.dialog-header h2 { font-size: 21px; }
+.dialog-header p { margin: 6px 0 0; color: GrayText; font-size: 13px; }
+.dialog-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: CanvasText; font-size: 25px; }
+.editor-field { display: grid; gap: 7px; }
+.editor-field small { color: GrayText; }
+.editor-field textarea { min-height: 210px; resize: vertical; line-height: 1.55; }
+.editor-error { min-height: 18px; margin: 0; color: #c62828; font-size: 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.order-list { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.order-item { display: flex; align-items: center; gap: 10px; min-height: 44px; border: 1px solid color-mix(in srgb, CanvasText 12%, transparent); border-radius: 10px; padding: 6px 8px 6px 12px; background: color-mix(in srgb, Canvas 96%, CanvasText 4%); }
+.order-handle { display: grid; width: 28px; height: 32px; place-items: center; border-radius: 7px; color: GrayText; font-size: 18px; cursor: grab; user-select: none; }
+.order-handle:hover { background: color-mix(in srgb, CanvasText 8%, transparent); color: CanvasText; }
+.order-handle:active { cursor: grabbing; }
+.order-item.dragging { opacity: .42; }
+.order-item.drag-before { box-shadow: inset 0 3px Highlight; }
+.order-item.drag-after { box-shadow: inset 0 -3px Highlight; }
+.order-label { flex: 1; font-weight: 600; }
+.order-button { width: 32px; height: 32px; border: 0; border-radius: 7px; background: transparent; color: CanvasText; }
+.order-button:hover:not(:disabled) { background: color-mix(in srgb, CanvasText 9%, transparent); }
+.order-button:disabled { cursor: default; opacity: .25; }
+.appearance-group { margin-top: 16px; }
+.appearance-group + .appearance-group { padding-top: 16px; border-top: 1px solid color-mix(in srgb, CanvasText 9%, transparent); }
+.appearance-group h3 { margin: 0; font-size: 14px; }
+.appearance-group > p { margin: 4px 0 10px; color: GrayText; font-size: 12px; }
+.mode-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; margin: 0; border: 0; padding: 0; }
+.mode-choice { position: relative; }
+.mode-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.mode-choice label { display: block; border: 1px solid color-mix(in srgb, CanvasText 16%, transparent); border-radius: 9px; padding: 9px 10px; text-align: center; font-size: 12px; font-weight: 600; cursor: pointer; }
+.mode-choice input:checked + label { border-color: Highlight; background: color-mix(in srgb, Highlight 10%, Canvas); color: color-mix(in srgb, Highlight 80%, CanvasText); }
+.mode-choice input:focus-visible + label { outline: 2px solid Highlight; outline-offset: 2px; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, minmax(110px, 1fr)); gap: 10px; margin: 0; border: 0; padding: 0; }
+.theme-choice { position: relative; }
+.theme-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-choice label { display: grid; gap: 8px; border: 2px solid transparent; border-radius: 10px; padding: 7px; text-align: center; font-size: 12px; cursor: pointer; }
+.theme-choice input:checked + label { border-color: Highlight; }
+.theme-choice input:focus-visible + label { outline: 2px solid Highlight; outline-offset: 2px; }
+.theme-preview { display: flex; height: 38px; overflow: hidden; border: 1px solid rgb(0 0 0 / 12%); border-radius: 7px; }
+.theme-preview-pane { position: relative; flex: 1; background: var(--pane-bg); }
+.theme-preview-pane::after { content: ""; position: absolute; inset: 12px 18%; border-radius: 4px; background: var(--pane-fg); opacity: .78; }
+.theme-preview-light { --pane-bg: var(--preview-light-bg); --pane-fg: var(--preview-light-fg); }
+.theme-preview-dark { --pane-bg: var(--preview-dark-bg); --pane-fg: var(--preview-dark-fg); }
+.theme-grid[data-preview-mode="light"] .theme-preview-dark,
+.theme-grid[data-preview-mode="dark"] .theme-preview-light { display: none; }
+[data-theme="classic"] { --preview-light-bg: #f7f7f8; --preview-light-fg: #202123; --preview-dark-bg: #202123; --preview-dark-fg: #ececf1; }
+[data-theme="ocean"] { --preview-light-bg: #e8f5ff; --preview-light-fg: #075985; --preview-dark-bg: #102a3d; --preview-dark-fg: #e0f2fe; }
+[data-theme="graphite"] { --preview-light-bg: #eceef1; --preview-light-fg: #272a2f; --preview-dark-bg: #3b3f46; --preview-dark-fg: #f4f4f5; }
+.form-actions { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 0; background: color-mix(in srgb, Canvas 94%, transparent); backdrop-filter: blur(10px); }
+#save-status { flex: 1; margin: 0; color: GrayText; font-size: 13px; }
+.primary-button, .secondary-button { min-height: 38px; border-radius: 8px; padding: 0 16px; }
+.primary-button { border: 1px solid Highlight; background: Highlight; color: HighlightText; font-weight: 700; }
+.secondary-button { border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); background: ButtonFace; color: ButtonText; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 620px) {
+  .settings-shell { width: min(100% - 20px, 760px); padding-top: 22px; }
+  .field-row { grid-template-columns: 1fr; gap: 9px; }
+  .theme-grid { grid-template-columns: repeat(2, 1fr); }
+  .mode-grid { grid-template-columns: 1fr; }
+  .prompt-heading { align-items: start; }
+  .prompt-library-item { grid-template-columns: 1fr; }
+  .prompt-library-actions { justify-content: flex-end; }
+  .library-actions { flex-wrap: wrap; }
+}
+
+@media (forced-colors: active) {
+  .settings-card,
+  .prompt-library-item,
+  .order-item,
+  .prompt-editor,
+  .library-empty,
+  select,
+  input,
+  textarea {
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .prompt-library-actions button,
+  .order-button,
+  .dialog-close {
+    forced-color-adjust: auto;
+  }
+
+  .theme-choice input:checked + label {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .mode-choice input:checked + label {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .order-item.drag-before { border-top: 3px solid Highlight; box-shadow: none; }
+  .order-item.drag-after { border-bottom: 3px solid Highlight; box-shadow: none; }
+
+  .editor-error {
+    color: MarkText;
+    background: Mark;
+  }
+}
