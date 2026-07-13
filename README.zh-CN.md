@@ -20,8 +20,6 @@
 
 https://github.com/user-attachments/assets/27f3408b-ca9c-4bcb-89c2-bb6a1436332f
 
-[下载 1080p 演示视频（28 MB）](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
-
 ## 为什么做这个插件
 
 OpenAI 已经宣布，随着浏览器式 Agent 工作能力向 ChatGPT 演进，Atlas 计划于 **2026 年 8 月 9 日停止工作**。详见官方 Help Center 通知：[Evolving Atlas into ChatGPT for browser-based agentic work](https://help.openai.com/en/articles/20001371-evolving-atlas-into-chatgpt-for-browser-based-agentic-work)。

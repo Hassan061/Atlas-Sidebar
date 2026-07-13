@@ -20,8 +20,6 @@
 
 https://github.com/user-attachments/assets/27f3408b-ca9c-4bcb-89c2-bb6a1436332f
 
-[Download the 1080p demo (28 MB)](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
-
 ## Why this project exists
 
 OpenAI has announced that Atlas is scheduled to stop working on **August 9, 2026**, as its browser-based agentic capabilities evolve into ChatGPT. See the official Help Center notice: [Evolving Atlas into ChatGPT for browser-based agentic work](https://help.openai.com/en/articles/20001371-evolving-atlas-into-chatgpt-for-browser-based-agentic-work).
