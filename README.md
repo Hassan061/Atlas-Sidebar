@@ -26,7 +26,9 @@ OpenAI has announced that Atlas is scheduled to stop working on **August 9, 2026
 
 One part of the Atlas browser that I especially valued was its sidebar. It let me keep ChatGPT next to the page I was reading and quickly bring useful context into a conversation without breaking my flow.
 
-What I did not want to lose was more than a piece of UI. It was a practical workflow: highlight a passage, capture a figure, download a paper, extract a video transcript, and combine material from several pages before asking one good question. Each step is simple, but repeating the handoffs dozens of times a day interrupts both reading and thinking.
+What worried me was not losing account data, bookmarks, or other browser state that can be exported or rebuilt. It was losing the workflow itself: highlight a passage, capture a figure, download a paper, extract a video transcript, and combine material from several pages before asking one good question. Each step is simple, but repeating the handoffs dozens of times a day interrupts both reading and thinking.
+
+OpenAI has since released a [ChatGPT Chrome extension](https://learn.chatgpt.com/docs/chrome-extension) for browser tasks that need signed-in browser state, allowing ChatGPT to read or act on websites during a task. It is powerful, but its interaction model is still different from the Atlas workflow I relied on: keeping ChatGPT beside the page while I deliberately collect material across multiple sources, review it in a local staging area, and decide what to send and when.
 
 Atlas Sidebar is an independent attempt to preserve that workflow. It does not recreate the entire Atlas browser and it never sends a prompt on your behalf. It restores one deliberate, user-controlled loop:
 
