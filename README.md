@@ -14,7 +14,9 @@
 
 ## 演示视频
 
-[观看 Atlas Sidebar 完整演示（1440p 高质量母版，124 MB）](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo.mp4)
+[![Atlas Sidebar 完整演示](./assets/demo-cover.png)](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
+
+[▶ 观看完整演示（1080p 分享版，28 MB）](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
 
 ## 为什么做这个插件
 
