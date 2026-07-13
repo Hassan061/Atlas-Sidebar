@@ -96,5 +96,5 @@ Atlas Sidebar 目前以本地 unpacked extension 方式使用，不经过 Chrome
 
 ## 兼容性
 
-当前版本：`0.27.0`  
+当前版本：`0.27.0`<br>
 当前验证环境：Chrome/Chromium（Manifest V3）

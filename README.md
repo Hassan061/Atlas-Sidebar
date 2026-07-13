@@ -96,5 +96,5 @@ Keep browsing on the left while ChatGPT or another task page remains open in Atl
 
 ## Compatibility
 
-Current version: `0.27.0`  
+Current version: `0.27.0`<br>
 Verified environment: Chrome/Chromium (Manifest V3)
