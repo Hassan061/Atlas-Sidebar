@@ -18,7 +18,7 @@
 
 ## 演示视频
 
-https://github.com/user-attachments/assets/4715c77e-bd82-4a14-8c98-e9d8092eada0
+https://github.com/user-attachments/assets/27f3408b-ca9c-4bcb-89c2-bb6a1436332f
 
 [下载 1080p 演示视频（28 MB）](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
 

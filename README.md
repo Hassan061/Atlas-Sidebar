@@ -18,7 +18,7 @@
 
 ## Demo
 
-https://github.com/user-attachments/assets/4715c77e-bd82-4a14-8c98-e9d8092eada0
+https://github.com/user-attachments/assets/27f3408b-ca9c-4bcb-89c2-bb6a1436332f
 
 [Download the 1080p demo (28 MB)](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
 
