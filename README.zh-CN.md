@@ -18,9 +18,9 @@
 
 ## 演示视频
 
-[![Atlas Sidebar 完整演示](./assets/demo-cover.png)](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
+https://github.com/user-attachments/assets/4715c77e-bd82-4a14-8c98-e9d8092eada0
 
-[▶ 观看完整演示（1080p 分享版，28 MB）](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
+[下载 1080p 演示视频（28 MB）](https://github.com/Johnny-xuan/Atlas-Sidebar/releases/download/v0.27.0/Atlas-Sidebar-Demo-1080p.mp4)
 
 ## 为什么做这个插件
 
