@@ -1,5 +1,10 @@
 (function installAtlasSelectionBubble() {
   if (globalThis.top !== globalThis && location.protocol === "about:") return;
+  if (globalThis.top !== globalThis) {
+    const extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
+    const parentOrigin = Array.from(location.ancestorOrigins || [])[0] || "";
+    if (parentOrigin !== extensionOrigin) return;
+  }
 
   const labels = {
     "zh-CN": { add: "添加选中文字到 Atlas Sidebar", adding: "正在添加", added: "已添加", failed: "添加失败，请重试" },
@@ -129,7 +134,7 @@
 
   function isHostedByAtlasSidebar() {
     if (globalThis.top === globalThis) return false;
-    const extensionOrigin = new URL(chrome.runtime.getURL("/")).origin;
+    const extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
     return Array.from(location.ancestorOrigins || []).includes(extensionOrigin);
   }
 

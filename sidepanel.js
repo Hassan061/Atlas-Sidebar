@@ -87,6 +87,7 @@ const errorOpenExternalButton = document.querySelector("#error-open-external");
 
 let currentUrl = HOME_URL;
 let pageState = globalThis.AtlasPageSessions.createDefault(HOME_URL);
+let lastPersistedPageState = "";
 let pageLibraryView = "saved";
 let showAllRecentPages = false;
 let visiblePageEntries = [];
@@ -101,6 +102,7 @@ let activePageContext = null;
 let bridgeConnected = false;
 let bridgeReady = false;
 let bridgeHealthTimer = null;
+let loadedPageFallbackTimer = null;
 let navigationVersion = 0;
 let captureCapabilitiesVersion = 0;
 let documentOptionsVersion = 0;
@@ -110,6 +112,8 @@ let frameLeasePort = null;
 let sidepanelClosing = false;
 const bridgeRequests = new Map();
 const previewUrls = new Map();
+let capturedTimeFormatter = null;
+let capturedTimeFormatterLocale = "";
 let currentSettings = globalThis.AtlasSettings.normalize();
 let promptLibrary = globalThis.AtlasPrompts.normalizeLibrary();
 let selectedSavedPrompt = null;
@@ -212,6 +216,7 @@ addSavedPromptButton.addEventListener("click", () => void stageSelectedPrompt())
 window.addEventListener("pagehide", () => {
   sidepanelClosing = true;
   clearBridgeHealthTimer();
+  clearLoadedPageFallback();
   frameLeasePort?.disconnect();
   void chrome.runtime.sendMessage({
     type: "ATLAS_CLEAR_FRAME_HOST",
@@ -224,7 +229,19 @@ browserFrame.addEventListener("load", () => {
     ? localCopy("ChatGPT 页面已加载，正在等待输入框…", "ChatGPT loaded; waiting for the composer…")
     : localCopy(`已打开 ${new URL(currentUrl).hostname}`, `Opened ${new URL(currentUrl).hostname}`);
   renderStaging();
-  void recordLoadedPage();
+  if (!activeFrameDocumentId) {
+    const loadedNavigationVersion = navigationVersion;
+    clearLoadedPageFallback();
+    loadedPageFallbackTimer = setTimeout(() => {
+      loadedPageFallbackTimer = null;
+      if (
+        loadedNavigationVersion === navigationVersion &&
+        !activeFrameDocumentId
+      ) {
+        void recordLoadedPage();
+      }
+    }, 300);
+  }
 });
 
 browserFrame.addEventListener("error", () => {
@@ -256,8 +273,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     applySettings();
     if (previousTranscriptLanguage !== currentSettings.transcriptLanguage) {
       transcriptLanguage.value = "";
+      if (!stagingDrawer.hidden) void refreshTranscriptOptions();
     }
-    void refreshTranscriptOptions();
   }
   if (areaName === "local" && changes[globalThis.AtlasPrompts.STORAGE_KEY]) {
     promptLibrary = globalThis.AtlasPrompts.normalizeLibrary(
@@ -270,6 +287,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       changes[globalThis.AtlasPageSessions.STORAGE_KEY].newValue,
       { homeUrl: HOME_URL }
     );
+    lastPersistedPageState = JSON.stringify(pageState);
     renderPageLibrary();
     updateNavigationButtons();
   }
@@ -277,9 +295,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "ATLAS_STAGE_CHANGED") {
-    void Promise.all([loadActivePageContext(), loadStagedItems()]).then(
-      openStagingDrawer
-    );
+    void loadStagedItems().then(openStagingDrawer);
   }
   if (message?.type === "ATLAS_ACTIVE_CONTEXT_CHANGED") {
     void loadActivePageContext();
@@ -290,13 +306,13 @@ void initializeSidepanel().catch(reportNavigationError);
 
 async function initializeSidepanel() {
   connectFrameLease();
-  [currentSettings, promptLibrary] = await Promise.all([
-    globalThis.AtlasSettings.load(),
-    globalThis.AtlasPrompts.load()
-  ]);
+  const pageRestore = restorePageState();
+  const activeContextLoad = loadActivePageContext();
+  const stagedItemsLoad = loadStagedItems();
+
+  currentSettings = await globalThis.AtlasSettings.load();
   applySettings();
-  await Promise.all([restorePageState(), loadActivePageContext()]);
-  await loadStagedItems();
+  await Promise.all([pageRestore, activeContextLoad, stagedItemsLoad]);
 }
 
 function applySettings() {
@@ -577,12 +593,13 @@ async function restorePageState() {
     legacyKey: LAST_URL_KEY,
     homeUrl: HOME_URL
   });
+  lastPersistedPageState = JSON.stringify(pageState);
   const restored = globalThis.AtlasPageSessions.currentPage(pageState);
   currentUrl = restored.url;
   addressInput.value = currentUrl;
   renderPageLibrary();
   updateNavigationButtons();
-  await navigate(currentUrl, { addToHistory: false });
+  await navigate(currentUrl, { addToHistory: false, persistState: false });
 }
 
 async function moveThroughPageHistory(delta) {
@@ -647,7 +664,6 @@ async function navigate(rawUrl, options) {
     }
 
     updateNavigationButtons();
-    await persistPageState();
 
     bridgeConnected = false;
     bridgeReady = false;
@@ -656,6 +672,8 @@ async function navigate(rawUrl, options) {
     browserFrame.src = currentUrl;
     syncFrameLease();
     scheduleBridgeHealthCheck(currentUrl, navigationVersion);
+
+    if (options.persistState !== false) await persistPageState();
     return true;
   } catch (error) {
     showError(error instanceof Error ? error.message : String(error));
@@ -672,10 +690,22 @@ async function persistPageState() {
   pageState = globalThis.AtlasPageSessions.normalizeState(pageState, {
     homeUrl: HOME_URL
   });
-  await chrome.storage.local.set({
-    [globalThis.AtlasPageSessions.STORAGE_KEY]: pageState,
-    [LAST_URL_KEY]: globalThis.AtlasPageSessions.currentPage(pageState).url
-  });
+  const serialized = JSON.stringify(pageState);
+  if (serialized !== lastPersistedPageState) {
+    const previousSerialized = lastPersistedPageState;
+    lastPersistedPageState = serialized;
+    try {
+      await chrome.storage.local.set({
+        [globalThis.AtlasPageSessions.STORAGE_KEY]: pageState,
+        [LAST_URL_KEY]: globalThis.AtlasPageSessions.currentPage(pageState).url
+      });
+    } catch (error) {
+      if (lastPersistedPageState === serialized) {
+        lastPersistedPageState = previousSerialized;
+      }
+      throw error;
+    }
+  }
   renderPageLibrary();
 }
 
@@ -694,8 +724,8 @@ function openPageLibrary() {
   clearPageLibrarySelection();
   editingSavedPageId = "";
   editingCurrentPageName = false;
-  renderPageLibrary();
   pageLibrary.showModal();
+  renderPageLibrary();
   pageLibraryToggleButton.setAttribute("aria-expanded", "true");
   requestAnimationFrame(() => pageLibrarySearch.focus());
 }
@@ -894,6 +924,14 @@ function renderPageLibrary() {
     "aria-labelledby",
     pageLibraryView === "saved" ? "saved-pages-tab" : "recent-pages-tab"
   );
+  pageLibrarySummary.textContent = formatPageLibrarySummary(
+    pageState.savedPages.length,
+    pageState.recentPages.length
+  );
+  pageLibraryBadge.textContent = String(pageState.savedPages.length);
+  pageLibraryBadge.hidden = pageState.savedPages.length === 0;
+  if (!pageLibrary.open) return;
+
   const query = pageLibrarySearch.value.trim();
   const visible = globalThis.AtlasPageSessions.visiblePageList(
     pageState,
@@ -916,12 +954,6 @@ function renderPageLibrary() {
   clearRecentPagesButton.hidden = pageLibraryView !== "recent";
   clearRecentPagesButton.disabled = pageState.recentPages.length === 0;
   syncPageSelectionControls();
-  pageLibrarySummary.textContent = formatPageLibrarySummary(
-    pageState.savedPages.length,
-    pageState.recentPages.length
-  );
-  pageLibraryBadge.textContent = String(pageState.savedPages.length);
-  pageLibraryBadge.hidden = pageState.savedPages.length === 0;
 }
 
 function createPageLibraryEntry(entry, kind, index) {
@@ -1129,6 +1161,12 @@ function clearBridgeHealthTimer() {
   bridgeHealthTimer = null;
 }
 
+function clearLoadedPageFallback() {
+  if (loadedPageFallbackTimer === null) return;
+  clearTimeout(loadedPageFallbackTimer);
+  loadedPageFallbackTimer = null;
+}
+
 async function openCurrentUrlInTab() {
   const result = await chrome.runtime.sendMessage({
     type: "ATLAS_OPEN_EXTERNAL",
@@ -1143,7 +1181,6 @@ async function loadStagedItems() {
     chrome.storage.session.get(STAGING_OPEN_KEY)
   ]);
   stagedItems = Array.isArray(persistent[STAGING_KEY]) ? persistent[STAGING_KEY] : [];
-  void chrome.runtime.sendMessage({ type: "ATLAS_STAGE_PRUNE" }).catch(() => {});
   renderStaging();
   if (session[STAGING_OPEN_KEY]) {
     openStagingDrawer();
@@ -1157,8 +1194,11 @@ function toggleStagingDrawer() {
 }
 
 function openStagingDrawer({ focus = false } = {}) {
+  const wasHidden = stagingDrawer.hidden;
   stagingDrawer.hidden = false;
   stageToggleButton.setAttribute("aria-expanded", "true");
+  renderStaging();
+  if (wasHidden) void refreshDetailedCaptureOptions();
   if (focus) {
     requestAnimationFrame(() => {
       if (!stagingDrawer.hidden) stagingDrawer.focus({ preventScroll: true });
@@ -1169,6 +1209,7 @@ function openStagingDrawer({ focus = false } = {}) {
 function closeStagingDrawer({ restoreFocus = true } = {}) {
   if (stagingDrawer.hidden) return;
   stagingDrawer.hidden = true;
+  clearPreviewUrls();
   stageToggleButton.setAttribute("aria-expanded", "false");
   if (restoreFocus) {
     requestAnimationFrame(() => stageToggleButton.focus({ preventScroll: true }));
@@ -1177,8 +1218,9 @@ function closeStagingDrawer({ restoreFocus = true } = {}) {
 
 function renderStaging() {
   const focusKey = document.activeElement?.dataset?.stageFocus || "";
-  clearPreviewUrls();
   const visibleItems = getVisibleStagedItems();
+  if (stagingDrawer.hidden) clearPreviewUrls();
+  else prunePreviewUrls(visibleItems);
   const selectedCount = visibleItems.filter(
     (item) => item.selected && isTransferableStageItem(item)
   ).length;
@@ -1229,6 +1271,7 @@ function renderStaging() {
     ? localCopy(`添加 ${selectedCount} 项到 ChatGPT`, `Add ${selectedCount} items to ChatGPT`)
     : localCopy("先打开 ChatGPT", "Open ChatGPT first"));
 
+  if (stagingDrawer.hidden) return;
   stagingList.replaceChildren(...visibleItems.map(createStageCard));
   if (focusKey) {
     requestAnimationFrame(() => {
@@ -1278,6 +1321,8 @@ function createStageCard(item) {
   if (item.kind === "screenshot" && item.blobKey) {
     const image = document.createElement("img");
     image.className = "stage-thumbnail";
+    image.loading = "lazy";
+    image.decoding = "async";
     image.alt =
       item.width && item.height
         ? localCopy(`截图预览，${item.width}×${item.height} 像素`, `Screenshot preview, ${item.width}×${item.height} pixels`)
@@ -1709,7 +1754,10 @@ function handleFrameNavigationMessage(event) {
     eventOrigin: event.origin
   });
   if (!navigation) return;
-  if (navigation.activateDocument) activeFrameDocumentId = navigation.documentId;
+  if (navigation.activateDocument) {
+    activeFrameDocumentId = navigation.documentId;
+    clearLoadedPageFallback();
+  }
   void syncFrameNavigation(new URL(navigation.url), navigation.title).catch(
     reportNavigationError
   );
@@ -1852,7 +1900,7 @@ function isChatGptUrl(rawUrl) {
 }
 
 async function captureActivePage(kind, retryOptions = null) {
-  await loadActivePageContext();
+  await loadActivePageContext({ refreshUi: false });
   if (kind === "document" && !retryOptions) await refreshDocumentOptions();
   if (kind === "transcript" && !retryOptions) await refreshTranscriptOptions();
   setStagingMessage(
@@ -1900,7 +1948,7 @@ async function captureActivePage(kind, retryOptions = null) {
     return false;
   } finally {
     await refreshCaptureCapabilities();
-    await Promise.all([refreshTranscriptOptions(), refreshDocumentOptions()]);
+    if (kind === "transcript") await refreshTranscriptOptions();
   }
 }
 
@@ -1910,15 +1958,16 @@ async function retryFailedItem(item) {
   }
 }
 
-async function loadActivePageContext() {
+async function loadActivePageContext({ refreshUi = true } = {}) {
   try {
     const result = await chrome.runtime.sendMessage({ type: "ATLAS_ACTIVE_CONTEXT_GET" });
     if (!result?.ok) throw new Error(result?.error || localCopy("无法读取当前页面。", "Could not read the current page."));
     activePageContext = result.context;
     renderStaging();
-    void refreshCaptureCapabilities();
-    void refreshTranscriptOptions();
-    void refreshDocumentOptions();
+    if (refreshUi) {
+      void refreshCaptureCapabilities();
+      if (!stagingDrawer.hidden) void refreshDetailedCaptureOptions();
+    }
   } catch {
     activePageContext = null;
     captureActionButtons.forEach((button) => {
@@ -1931,6 +1980,10 @@ async function loadActivePageContext() {
     });
     transcriptLanguage.hidden = true;
   }
+}
+
+function refreshDetailedCaptureOptions() {
+  return Promise.all([refreshTranscriptOptions(), refreshDocumentOptions()]);
 }
 
 async function refreshCaptureCapabilities() {
@@ -2146,18 +2199,36 @@ function getItemGroupKey(item) {
 
 async function hydrateScreenshotPreview(item, image) {
   try {
+    const cached = previewUrls.get(item.id);
+    if (cached?.blobKey === item.blobKey) {
+      image.src = cached.url;
+      return;
+    }
     const record = await globalThis.AtlasBlobStore.get(item.blobKey);
-    if (!record?.blob || !image.isConnected) return;
+    if (!record?.blob || !image.isConnected || stagingDrawer.hidden) return;
     const objectUrl = URL.createObjectURL(record.blob);
-    previewUrls.set(item.id, objectUrl);
+    previewUrls.set(item.id, { blobKey: item.blobKey, url: objectUrl });
     image.src = objectUrl;
   } catch {
     image.alt = localCopy("截图预览不可用", "Screenshot preview unavailable");
   }
 }
 
+function prunePreviewUrls(items) {
+  const activePreviews = new Map(
+    items
+      .filter((item) => item.kind === "screenshot" && item.blobKey)
+      .map((item) => [item.id, item.blobKey])
+  );
+  for (const [id, cached] of previewUrls) {
+    if (activePreviews.get(id) === cached.blobKey) continue;
+    URL.revokeObjectURL(cached.url);
+    previewUrls.delete(id);
+  }
+}
+
 function clearPreviewUrls() {
-  for (const url of previewUrls.values()) URL.revokeObjectURL(url);
+  for (const cached of previewUrls.values()) URL.revokeObjectURL(cached.url);
   previewUrls.clear();
 }
 
@@ -2249,10 +2320,15 @@ function formatBytes(size) {
 function formatCapturedTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(currentSettings.uiLanguage === "en" ? "en" : "zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
+  const locale = currentSettings.uiLanguage === "en" ? "en" : "zh-CN";
+  if (!capturedTimeFormatter || capturedTimeFormatterLocale !== locale) {
+    capturedTimeFormatterLocale = locale;
+    capturedTimeFormatter = new Intl.DateTimeFormat(locale, {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+  return capturedTimeFormatter.format(date);
 }
 
 async function downloadAttachmentFallback(item) {

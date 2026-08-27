@@ -36,7 +36,7 @@ Atlas Sidebar is an independent attempt to preserve that workflow. It does not r
 
 ## What it can do
 
-- **Sidebar browser:** Open a URL inside Chrome Side Panel, with ChatGPT as the default. The address bar, history navigation, and embedded page state stay in sync.
+- **Sidebar browser:** Open a URL inside Chrome Side Panel, with ChatGPT as the default. The address bar, history navigation, and embedded page state stay in sync; **Open in tab** launches the exact current sidebar URL in a new normal tab.
 - **Saved pages and recent visits:** Save the current sidebar page, give it a custom name, search it, and batch-select or delete entries so you can move quickly between conversations and tasks.
 - **Persistent staging area:** Collect course material, papers, screenshots, and transcripts across multiple webpages. Switching tabs, closing the side panel, reloading the extension, or restarting Chrome does not clear the draft; only you can remove it.
 - **Text and links:** Highlight text and click the small “+” beside the selection, use the context menu, or save the current page link directly.
@@ -96,7 +96,7 @@ Keep browsing on the left while ChatGPT or another task page remains open in Atl
 
 ## Compatibility
 
-Current version: `0.27.0`<br>
+Current version: `0.28.0`<br>
 Verified environment: Chrome/Chromium (Manifest V3)
 
 ## License

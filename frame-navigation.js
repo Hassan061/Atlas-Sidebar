@@ -1,6 +1,10 @@
 (function reportAtlasFrameNavigation() {
   if (window.top === window) return;
 
+  const extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
+  const parentOrigin = Array.from(location.ancestorOrigins || [])[0] || "";
+  if (parentOrigin !== extensionOrigin) return;
+
   const SOURCE = "atlas-frame-navigation";
   const documentId = crypto.randomUUID?.() || `frame-${Date.now()}-${Math.random()}`;
   globalThis.__atlasFrameDocumentId = documentId;
@@ -39,7 +43,7 @@
   document.addEventListener("visibilitychange", schedule, { passive: true });
 
   const observer = new MutationObserver(schedule);
-  observer.observe(document.documentElement, {
+  observer.observe(document.head || document.documentElement, {
     subtree: true,
     childList: true,
     characterData: true

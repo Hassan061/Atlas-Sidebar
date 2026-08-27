@@ -2,7 +2,12 @@
   const REQUEST_SOURCE = "atlas-sidebar";
   const RESPONSE_SOURCE = "atlas-chatgpt-bridge";
   const MAX_TEXT_LENGTH = 200_000;
+  const COMPOSER_CHECK_INTERVAL_MS = 100;
   const EXTENSION_ORIGIN = chrome.runtime.getURL("").replace(/\/$/, "");
+  if (window.top !== window) {
+    const parentOrigin = Array.from(globalThis.location?.ancestorOrigins || [])[0] || "";
+    if (parentOrigin !== EXTENSION_ORIGIN) return;
+  }
 
   if (window.top === window) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -73,10 +78,15 @@
     postReadiness(false);
     if (typeof MutationObserver !== "function" || !document.documentElement) return;
 
+    let composerCheckTimer = null;
     const observer = new MutationObserver(() => {
-      if (!findComposer()) return;
-      observer.disconnect();
-      postReadiness(true);
+      if (composerCheckTimer !== null) return;
+      composerCheckTimer = setTimeout(() => {
+        composerCheckTimer = null;
+        if (!findComposer()) return;
+        observer.disconnect();
+        postReadiness(true);
+      }, COMPOSER_CHECK_INTERVAL_MS);
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }

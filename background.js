@@ -46,6 +46,8 @@ let stageMutationQueue = Promise.resolve();
 let frameRuleQueue = Promise.resolve();
 let contextMenuQueue = Promise.resolve();
 let activeFrameLease = null;
+let activeFrameHostname = "";
+let activeContextNotifyTimer = null;
 const bilibiliCapabilityCache = new Map();
 
 async function configureSidePanel() {
@@ -162,12 +164,12 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 chrome.tabs.onActivated.addListener(() => {
-  void notifyActiveContextChanged();
+  scheduleActiveContextChanged();
 });
 
-chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-  if (changeInfo.url || changeInfo.status === "complete") {
-    void notifyActiveContextChanged();
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+  if (tab?.active && (changeInfo.url || changeInfo.status === "complete")) {
+    scheduleActiveContextChanged();
   }
 });
 
@@ -259,7 +261,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === "ATLAS_OPEN_EXTERNAL") {
-    void openOrFocusExternalUrl(message.url)
+    void openExternalUrlInNewTab(message.url)
       .then((tab) => sendResponse({ ok: true, tabId: tab.id }))
       .catch((error) =>
         sendResponse({
@@ -425,6 +427,7 @@ async function updateFrameRule(hostname) {
   if (typeof hostname !== "string" || !hostname) {
     throw new Error("A valid hostname is required.");
   }
+  if (hostname === activeFrameHostname) return;
 
   await chrome.declarativeNetRequest.updateSessionRules({
     removeRuleIds: [FRAME_RULE_ID],
@@ -447,12 +450,14 @@ async function updateFrameRule(hostname) {
       }
     ]
   });
+  activeFrameHostname = hostname;
 }
 
 async function clearFrameRule() {
   await chrome.declarativeNetRequest.updateSessionRules({
     removeRuleIds: [FRAME_RULE_ID]
   });
+  activeFrameHostname = "";
 }
 
 async function getRuntimeDiagnostics() {
@@ -2176,6 +2181,12 @@ async function assertActivePageUnchanged(tab) {
   );
 }
 
+async function openExternalUrlInNewTab(rawUrl) {
+  const url = new URL(rawUrl);
+  if (!/^https?:$/.test(url.protocol)) throw new Error("只能打开 HTTP(S) 页面。");
+  return chrome.tabs.create({ url: url.href, active: true });
+}
+
 async function openOrFocusExternalUrl(rawUrl) {
   const url = new URL(rawUrl);
   if (!/^https?:$/.test(url.protocol)) throw new Error("只能打开 HTTP(S) 页面。");
@@ -2473,6 +2484,14 @@ function discoverDocumentLinks() {
   return options
     .sort((left, right) => right.priority - left.priority)
     .map(({ priority: _priority, ...option }) => option);
+}
+
+function scheduleActiveContextChanged() {
+  if (activeContextNotifyTimer !== null) clearTimeout(activeContextNotifyTimer);
+  activeContextNotifyTimer = setTimeout(() => {
+    activeContextNotifyTimer = null;
+    void notifyActiveContextChanged();
+  }, 120);
 }
 
 async function notifyActiveContextChanged() {

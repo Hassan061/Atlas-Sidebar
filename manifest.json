@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Atlas Sidebar",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "description": "Personal local workspace for staging page content, prompts, documents, and transcripts before using AI.",
   "minimum_chrome_version": "116",
   "permissions": [

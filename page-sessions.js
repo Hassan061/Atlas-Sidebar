@@ -425,11 +425,14 @@
     if (!storageArea?.get) return normalizeState(null, options);
     const legacyKey = options.legacyKey || "atlasSidebarLastUrl";
     const stored = await storageArea.get([STORAGE_KEY, legacyKey]);
-    const state = normalizeState(stored?.[STORAGE_KEY], {
+    const storedState = stored?.[STORAGE_KEY];
+    const state = normalizeState(storedState, {
       ...options,
       legacyUrl: stored?.[legacyKey]
     });
-    await save(state, storageArea);
+    if (JSON.stringify(storedState) !== JSON.stringify(state)) {
+      await save(state, storageArea);
+    }
     return state;
   }
 
