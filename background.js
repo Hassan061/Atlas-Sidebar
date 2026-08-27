@@ -167,23 +167,29 @@ const QUICK_CAPTURE_COMMANDS = Object.freeze({
 });
 
 chrome.commands.onCommand.addListener((command, tab) => {
+  void runQuickCaptureCommand(command, tab);
+});
+
+async function runQuickCaptureCommand(command, tab) {
   const kind = QUICK_CAPTURE_COMMANDS[command];
-  if (!kind) return;
+  if (!kind) return null;
 
   if (tab?.id !== undefined) {
     void chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
   }
 
-  void enqueueCapture(() => captureActiveTab(kind, {}))
-    .then((item) => {
-      if (!item?.id) return undefined;
-      return chrome.runtime.sendMessage({
-        type: "ATLAS_QUICK_TRANSFER",
-        itemId: item.id
-      });
-    })
-    .catch(() => {});
-});
+  try {
+    const item = await enqueueCapture(() => captureActiveTab(kind, {}));
+    if (item?.id) {
+      await chrome.runtime
+        .sendMessage({ type: "ATLAS_QUICK_TRANSFER", itemId: item.id })
+        .catch(() => {});
+    }
+    return item;
+  } catch {
+    return null;
+  }
+}
 
 chrome.tabs.onActivated.addListener(() => {
   void notifyActiveContextChanged();

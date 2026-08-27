@@ -24,7 +24,7 @@
         });
       return true;
     });
-  } else {
+  } else if (isDirectExtensionChild()) {
     window.addEventListener("message", (event) => {
       if (event.source !== window.parent || event.origin !== EXTENSION_ORIGIN) {
         return;
@@ -51,6 +51,14 @@
     });
 
     announceEmbeddedReadiness();
+  }
+
+  function isDirectExtensionChild() {
+    try {
+      return location.ancestorOrigins?.[0] === EXTENSION_ORIGIN;
+    } catch {
+      return false;
+    }
   }
 
   function announceEmbeddedReadiness() {
