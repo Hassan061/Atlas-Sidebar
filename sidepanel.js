@@ -284,7 +284,46 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "ATLAS_ACTIVE_CONTEXT_CHANGED") {
     void loadActivePageContext();
   }
+  if (message?.type === "ATLAS_QUICK_TRANSFER" && typeof message.itemId === "string") {
+    void handleQuickTransfer(message.itemId);
+  }
 });
+
+async function handleQuickTransfer(itemId) {
+  await Promise.all([loadActivePageContext(), loadStagedItems()]);
+  openStagingDrawer();
+
+  if (!isChatGptUrl(currentUrl)) {
+    setStagingMessage(
+      localCopy("已采集到暂存区；请在侧边栏打开 ChatGPT 后再添加。", "Captured to staging. Open ChatGPT in the sidebar to add it."),
+      "success"
+    );
+    return;
+  }
+
+  const ready = await waitForBridgeReady(20_000);
+  if (!ready) {
+    setStagingMessage(
+      localCopy("已采集到暂存区；ChatGPT 输入框尚未就绪，请稍后手动添加。", "Captured to staging. The ChatGPT composer is not ready yet; add it manually."),
+      "error"
+    );
+    return;
+  }
+
+  await transferSelectedItems([itemId]);
+}
+
+function waitForBridgeReady(timeoutMs) {
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    const check = () => {
+      if (bridgeReady) return resolve(true);
+      if (performance.now() - startedAt >= timeoutMs) return resolve(false);
+      setTimeout(check, 400);
+    };
+    check();
+  });
+}
 
 void initializeSidepanel().catch(reportNavigationError);
 

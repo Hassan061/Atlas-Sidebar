@@ -161,6 +161,30 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   void enqueueCapture(() => captureFromMenu(info, tab)).catch(() => {});
 });
 
+const QUICK_CAPTURE_COMMANDS = Object.freeze({
+  "quick-screenshot": "screenshot",
+  "quick-transcript": "transcript"
+});
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  const kind = QUICK_CAPTURE_COMMANDS[command];
+  if (!kind) return;
+
+  if (tab?.id !== undefined) {
+    void chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+  }
+
+  void enqueueCapture(() => captureActiveTab(kind, {}))
+    .then((item) => {
+      if (!item?.id) return undefined;
+      return chrome.runtime.sendMessage({
+        type: "ATLAS_QUICK_TRANSFER",
+        itemId: item.id
+      });
+    })
+    .catch(() => {});
+});
+
 chrome.tabs.onActivated.addListener(() => {
   void notifyActiveContextChanged();
 });

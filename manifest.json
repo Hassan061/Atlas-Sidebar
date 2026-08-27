@@ -37,6 +37,16 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
+  "commands": {
+    "quick-screenshot": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Capture a screenshot of the current page and add it to ChatGPT"
+    },
+    "quick-transcript": {
+      "suggested_key": { "default": "Alt+Shift+Y" },
+      "description": "Capture the video transcript and add it to ChatGPT"
+    }
+  },
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
