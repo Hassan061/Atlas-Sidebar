@@ -277,40 +277,57 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "ATLAS_STAGE_CHANGED") {
-    void Promise.all([loadActivePageContext(), loadStagedItems()]).then(
-      openStagingDrawer
-    );
+    void Promise.all([loadActivePageContext(), loadStagedItems()]).then(() => {
+      if (Date.now() >= quickCaptureQuietUntil) openStagingDrawer();
+    });
   }
   if (message?.type === "ATLAS_ACTIVE_CONTEXT_CHANGED") {
     void loadActivePageContext();
+  }
+  if (message?.type === "ATLAS_QUICK_CAPTURE_START") {
+    quickCaptureQuietUntil = Date.now() + 60_000;
+  }
+  if (message?.type === "ATLAS_QUICK_CAPTURE_FAILED") {
+    quickCaptureQuietUntil = 0;
+    void Promise.all([loadActivePageContext(), loadStagedItems()]).then(() =>
+      openStagingDrawer()
+    );
   }
   if (message?.type === "ATLAS_QUICK_TRANSFER" && typeof message.itemId === "string") {
     void handleQuickTransfer(message.itemId);
   }
 });
 
+let quickCaptureQuietUntil = 0;
+
 async function handleQuickTransfer(itemId) {
-  await Promise.all([loadActivePageContext(), loadStagedItems()]);
-  openStagingDrawer();
+  quickCaptureQuietUntil = Date.now() + 60_000;
+  try {
+    await Promise.all([loadActivePageContext(), loadStagedItems()]);
 
-  if (!isChatGptUrl(currentUrl)) {
-    setStagingMessage(
-      localCopy("已采集到暂存区；请在侧边栏打开 ChatGPT 后再添加。", "Captured to staging. Open ChatGPT in the sidebar to add it."),
-      "success"
-    );
-    return;
+    if (!isChatGptUrl(currentUrl)) {
+      setStagingMessage(
+        localCopy("已采集到暂存区；请在侧边栏打开 ChatGPT 后再添加。", "Captured to staging. Open ChatGPT in the sidebar to add it."),
+        "success"
+      );
+      openStagingDrawer();
+      return;
+    }
+
+    const ready = await waitForBridgeReady(20_000);
+    if (!ready) {
+      setStagingMessage(
+        localCopy("已采集到暂存区；ChatGPT 输入框尚未就绪，请稍后手动添加。", "Captured to staging. The ChatGPT composer is not ready yet; add it manually."),
+        "error"
+      );
+      openStagingDrawer();
+      return;
+    }
+
+    await transferSelectedItems([itemId], { attachmentsOnly: true });
+  } finally {
+    quickCaptureQuietUntil = Date.now() + 3000;
   }
-
-  const ready = await waitForBridgeReady(20_000);
-  if (!ready) {
-    setStagingMessage(
-      localCopy("已采集到暂存区；ChatGPT 输入框尚未就绪，请稍后手动添加。", "Captured to staging. The ChatGPT composer is not ready yet; add it manually."),
-      "error"
-    );
-    return;
-  }
-
-  await transferSelectedItems([itemId]);
 }
 
 function waitForBridgeReady(timeoutMs) {
@@ -1185,7 +1202,7 @@ async function loadStagedItems() {
   void chrome.runtime.sendMessage({ type: "ATLAS_STAGE_PRUNE" }).catch(() => {});
   renderStaging();
   if (session[STAGING_OPEN_KEY]) {
-    openStagingDrawer();
+    if (Date.now() >= quickCaptureQuietUntil) openStagingDrawer();
     await chrome.storage.session.remove(STAGING_OPEN_KEY);
   }
 }
@@ -1541,7 +1558,7 @@ async function stageLocalFile(file) {
   }
 }
 
-async function transferSelectedItems(onlyIds = null) {
+async function transferSelectedItems(onlyIds = null, { attachmentsOnly = false } = {}) {
   setStagingMessage("", "");
 
   if (!isChatGptUrl(currentUrl)) {
@@ -1567,6 +1584,17 @@ async function transferSelectedItems(onlyIds = null) {
       "error"
     );
     return;
+  }
+  if (attachmentsOnly) {
+    bundle = bundle.attachments.length > 0
+      ? { composerText: "", attachments: bundle.attachments }
+      : {
+          composerText: selectedItems
+            .map((item) => String(item.text || "").trim())
+            .filter(Boolean)
+            .join("\n\n"),
+          attachments: []
+        };
   }
   if (!bundle.composerText && bundle.attachments.length === 0) {
     setStagingMessage(localCopy("请至少选择一份可传输素材。", "Select at least one transferable material."), "error");

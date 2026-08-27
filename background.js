@@ -178,6 +178,10 @@ async function runQuickCaptureCommand(command, tab) {
     void chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
   }
 
+  await chrome.runtime
+    .sendMessage({ type: "ATLAS_QUICK_CAPTURE_START" })
+    .catch(() => {});
+
   try {
     const item = await enqueueCapture(() => captureActiveTab(kind, {}));
     if (item?.id) {
@@ -187,6 +191,9 @@ async function runQuickCaptureCommand(command, tab) {
     }
     return item;
   } catch {
+    await chrome.runtime
+      .sendMessage({ type: "ATLAS_QUICK_CAPTURE_FAILED" })
+      .catch(() => {});
     return null;
   }
 }
