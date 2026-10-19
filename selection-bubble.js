@@ -56,7 +56,8 @@
 
   document.addEventListener("pointerup", scheduleSelectionBubble, true);
   document.addEventListener("keyup", (event) => {
-    if (event.key.startsWith("Arrow") || event.key === "Shift") scheduleSelectionBubble();
+    const key = typeof event.key === "string" ? event.key : "";
+    if (key.startsWith("Arrow") || key === "Shift") scheduleSelectionBubble();
   }, true);
   document.addEventListener("selectionchange", scheduleSelectionBubble, true);
   document.addEventListener("pointerdown", (event) => {

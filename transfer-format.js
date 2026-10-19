@@ -9,6 +9,7 @@ const COPY = Object.freeze({
     prompt: (name) => name ? `常用提示词：${name}` : "常用提示词",
     screenshotAttachment: "截图附件",
     transcriptAttachment: "字幕附件",
+    feedAttachment: "信息流附件",
     selectionAttachment: "选中文字附件",
     documentAttachment: "文档附件",
     question: "我的问题：",
@@ -25,6 +26,7 @@ const COPY = Object.freeze({
     prompt: (name) => name ? `Saved prompt: ${name}` : "Saved prompt",
     screenshotAttachment: "Screenshot attachment",
     transcriptAttachment: "Transcript attachment",
+    feedAttachment: "Feed attachment",
     selectionAttachment: "Selected text attachment",
     documentAttachment: "Document attachment",
     question: "My question:",
@@ -103,6 +105,8 @@ globalThis.AtlasTransfer = Object.freeze({
               ? copy.screenshotAttachment
               : item.kind === "transcript"
                 ? copy.transcriptAttachment
+                : item.kind === "feed"
+                  ? copy.feedAttachment
                 : item.kind === "selection"
                   ? copy.selectionAttachment
                   : copy.documentAttachment,

@@ -6,7 +6,8 @@
     "document",
     "local-file",
     "prompt",
-    "transcript"
+    "transcript",
+    "feed"
   ]);
   const UI_LANGUAGES = Object.freeze([
     "zh-CN",
@@ -85,6 +86,7 @@
       document: "文档",
       localFile: "本地文件",
       transcript: "字幕",
+      feed: "信息流",
       prompt: "提示词",
       documentSource: "文档来源",
       transcriptLanguage: "字幕语言",
@@ -160,6 +162,7 @@
       document: "Document",
       localFile: "Local file",
       transcript: "Transcript",
+      feed: "Feed",
       prompt: "Prompt",
       documentSource: "Document source",
       transcriptLanguage: "Transcript language",

@@ -86,6 +86,7 @@
     const extension = {
       screenshot: ".png",
       transcript: ".vtt",
+      feed: ".md",
       selection: ".txt",
       document: ""
     }[item?.kind] || "";

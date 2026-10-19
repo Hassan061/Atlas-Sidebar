@@ -45,6 +45,10 @@
     "quick-transcript": {
       "suggested_key": { "default": "Alt+Shift+Y" },
       "description": "Capture the video transcript and add it to ChatGPT"
+    },
+    "quick-feed": {
+      "suggested_key": { "default": "Alt+Shift+X" },
+      "description": "Capture the loaded feed (X, YouTube, LinkedIn) as text and add it to ChatGPT"
     }
   },
   "options_ui": {

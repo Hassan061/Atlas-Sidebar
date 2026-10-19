@@ -397,7 +397,8 @@ function applySettings() {
   captureActions.setAttribute("aria-label", t("captureGroup"));
   const featureLabels = {
     link: t("link"), screenshot: t("screenshot"), document: t("document"),
-    "local-file": t("localFile"), prompt: t("prompt"), transcript: t("transcript")
+    "local-file": t("localFile"), prompt: t("prompt"), transcript: t("transcript"),
+    feed: t("feed")
   };
   for (const feature of captureActions.querySelectorAll("[data-feature]")) {
     const id = feature.dataset.feature;
@@ -1437,7 +1438,7 @@ function createStageCard(item) {
   }
   if (
     item.status === "failed" &&
-    ["link", "screenshot", "document", "transcript"].includes(item.kind) &&
+    ["link", "screenshot", "document", "transcript", "feed"].includes(item.kind) &&
     getItemGroupKey(item) === activePageContext?.groupKey
   ) {
     const retry = document.createElement("button");
@@ -2230,8 +2231,8 @@ function clearPreviewUrls() {
 
 function stageKindLabel(kind) {
   const labels = currentSettings.uiLanguage === "en"
-    ? { selection: "Selected text", link: "Page link", screenshot: "Screenshot", document: "Document", prompt: "Prompt", transcript: "Transcript" }
-    : { selection: "选中文字", link: "页面链接", screenshot: "截图", document: "文档", prompt: "提示词", transcript: "字幕" };
+    ? { selection: "Selected text", link: "Page link", screenshot: "Screenshot", document: "Document", prompt: "Prompt", transcript: "Transcript", feed: "feed" }
+    : { selection: "选中文字", link: "页面链接", screenshot: "截图", document: "文档", prompt: "提示词", transcript: "字幕", feed: "信息流" };
   return labels[kind] || localCopy("素材", "Material");
 }
 
@@ -2264,6 +2265,14 @@ function stagePreviewText(item) {
       return `${item.fileName || "document"} · ${formatBytes(item.size)}`;
     case "prompt":
       return [item.promptName || localCopy("常用提示词", "Saved prompt"), item.text]
+        .filter(Boolean)
+        .join(" · ");
+    case "feed":
+      return [
+        item.fileName || localCopy("信息流", "Feed"),
+        item.postCount ? localCopy(`${item.postCount} 条帖子`, `${item.postCount} posts`) : "",
+        formatBytes(item.size)
+      ]
         .filter(Boolean)
         .join(" · ");
     case "transcript":
@@ -2301,8 +2310,8 @@ function stageSourceText(item) {
 
 function captureKindLabel(kind) {
   const labels = currentSettings.uiLanguage === "en"
-    ? { link: "link", screenshot: "screenshot", document: "document", transcript: "transcript" }
-    : { link: "链接", screenshot: "截图", document: "文档", transcript: "字幕" };
+    ? { link: "link", screenshot: "screenshot", document: "document", transcript: "transcript", feed: "feed" }
+    : { link: "链接", screenshot: "截图", document: "文档", transcript: "字幕", feed: "信息流" };
   return labels[kind] || localCopy("内容", "content");
 }
 
@@ -2565,7 +2574,8 @@ function localizeCaptureCapability(kind, capability) {
     link: ["The current tab URL is unavailable.", "Refresh the current tab and retry."],
     screenshot: ["Chrome does not allow screenshots of this page.", "Use a regular web page or local file page."],
     document: ["This page cannot be read as a document.", "Use Link, Screenshot, or Local file instead."],
-    transcript: ["The current page is not a supported video.", "Open a YouTube or Bilibili video first."]
+    transcript: ["The current page is not a supported video.", "Open a YouTube or Bilibili video first."],
+    feed: ["The current page is not X, YouTube, or LinkedIn.", "Open an X timeline, a YouTube page, or a LinkedIn jobs or feed page first."]
   }[kind] || ["This capture type is unavailable.", "Use Link or Screenshot instead."];
   return { reason: copy[0], fallback: copy[1] };
 }
@@ -2595,9 +2605,11 @@ function localizeCaptureFailure(failure, kind = "") {
     "transcript-track-missing": ["The selected transcript track is no longer available.", "Choose a language again and retry."],
     "transcript-po-token": ["A transcript track exists, but YouTube requires a PO Token to fetch it.", "Open the transcript panel on YouTube and retry."],
     "transcript-fetch-failed": ["A transcript track exists, but its text could not be fetched.", "Retry or choose another transcript track."],
+    "feed-empty": ["No posts or videos are loaded on this page.", "Scroll to a part of the page with posts, then retry."],
     "capture-failed": [`${stageKindLabel(kind)} capture failed.`, "Retry; if it still fails, use Link or Screenshot."]
   }[source.code] || [`${stageKindLabel(kind)} capture failed.`, "Retry; if it still fails, use Link or Screenshot."];
-  return copy.join(" ");
+  const debug = String(source.message || "").match(/\[debug: [^\]]*\]/)?.[0] || "";
+  return [...copy, debug].filter(Boolean).join(" ");
 }
 
 function localizeDocumentOptionLabel(option) {

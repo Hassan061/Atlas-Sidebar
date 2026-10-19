@@ -39,6 +39,11 @@ const CAPTURE_ADAPTERS = Object.freeze({
     canCapture: (context) => getBaseCaptureCapability("transcript", context),
     capture: ({ options, tab }) =>
       captureTranscript(tab, options?.preferredTrackId)
+  }),
+  feed: Object.freeze({
+    kind: "feed",
+    canCapture: (context) => getBaseCaptureCapability("feed", context),
+    capture: ({ tab }) => captureFeed(tab)
   })
 });
 let captureQueue = Promise.resolve();
@@ -163,7 +168,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 const QUICK_CAPTURE_COMMANDS = Object.freeze({
   "quick-screenshot": "screenshot",
-  "quick-transcript": "transcript"
+  "quick-transcript": "transcript",
+  "quick-feed": "feed"
 });
 
 chrome.commands.onCommand.addListener((command, tab) => {
@@ -772,7 +778,7 @@ function captureRetryOptions(kind, options) {
 }
 
 async function getCaptureCapabilities(tab) {
-  const kinds = ["link", "screenshot", "document", "transcript"];
+  const kinds = ["link", "screenshot", "document", "transcript", "feed"];
   const entries = await Promise.all(
     kinds.map(async (kind) => [
       kind,
@@ -870,6 +876,15 @@ async function getBaseCaptureCapability(kind, { info, tab }) {
           state: "unsupported",
           reason: "当前页面不是支持字幕采集的视频页面。",
           fallback: "请先打开 YouTube 或哔哩哔哩视频页面。"
+        };
+  }
+  if (kind === "feed") {
+    return feedSiteFor(rawUrl)
+      ? { state: "available", reason: "", fallback: "" }
+      : {
+          state: "unsupported",
+          reason: "当前页面不是 X、YouTube 或 LinkedIn。",
+          fallback: "请先打开 X 时间线、YouTube 页面或 LinkedIn 职位/动态页面。"
         };
   }
   return {
@@ -2331,6 +2346,822 @@ function safeFileName(value) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120) || "file";
+}
+
+function isXUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["x.com", "www.x.com", "twitter.com", "www.twitter.com", "mobile.twitter.com"].includes(
+      url.hostname
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isYouTubeUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function captureFeed(tab) {
+  await assertActivePageUnchanged(tab);
+  const site = feedSiteFor(tab.url);
+  const extractor = FEED_EXTRACTORS[site] || FEED_EXTRACTORS.x;
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: extractor.extract
+  });
+  if (!result?.posts?.length && !result?.current) {
+    throw createCaptureError(
+      "feed-empty",
+      `当前页面没有加载任何帖子、视频或职位。${result?.debug ? ` [debug: ${result.debug}]` : ""}`,
+      true,
+      "请滚动到有内容的位置后重试。"
+    );
+  }
+  await assertActivePageUnchanged(tab);
+
+  const markdown = extractor.format(result);
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+  const fileName = `${site}-feed-${safeFileName(result.context.label || "feed")}-${stamp}.md`;
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  assertBlobSize(blob);
+  const blobKey = crypto.randomUUID();
+  await globalThis.AtlasBlobStore.put({ key: blobKey, blob, fileName });
+
+  return appendStagedItem({
+    id: crypto.randomUUID(),
+    kind: "feed",
+    blobKey,
+    fileName,
+    mime: blob.type,
+    size: blob.size,
+    postCount: result.posts.length,
+    onScreenCount: result.posts.filter((post) => post.onScreen).length,
+    extractionMode: `${site}-loaded-items`,
+    preview: markdown.slice(0, 600),
+    selected: true,
+    status: "ready",
+    capturedAt: new Date().toISOString(),
+    source: makeSource(tab)
+  });
+}
+
+// Runs inside the X page. Must stay self-contained: no closures over background scope.
+function extractXFeed() {
+  const MAX_POSTS = 120;
+  const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+
+  const metric = (article, testId) => {
+    const node = article.querySelector(`[data-testid="${testId}"]`);
+    if (!node) return "";
+    const label = node.getAttribute("aria-label") || "";
+    const fromLabel = label.match(/^([\d,.]+[KMB]?)/i);
+    if (fromLabel) return fromLabel[1];
+    return clean(node.textContent);
+  };
+
+  const views = (article) => {
+    const link = article.querySelector('a[href$="/analytics"]');
+    if (!link) return "";
+    const label = link.getAttribute("aria-label") || "";
+    const match = label.match(/^([\d,.]+[KMB]?)/i);
+    return match ? match[1] : clean(link.textContent);
+  };
+
+  const tweetText = (root) => {
+    const node = root.querySelector('[data-testid="tweetText"]');
+    if (!node) return "";
+    const parts = [];
+    node.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        parts.push(child.textContent);
+      } else if (child.nodeName === "IMG") {
+        parts.push(child.getAttribute("alt") || "");
+      } else if (child.nodeName === "A") {
+        const href = child.getAttribute("href") || "";
+        const text = child.textContent || "";
+        parts.push(/^https?:/.test(href) && !text.startsWith("@") && !text.startsWith("#") ? `${text} (${href})` : text);
+      } else {
+        parts.push(child.textContent || "");
+      }
+    });
+    return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
+  };
+
+  const author = (root) => {
+    const node = root.querySelector('[data-testid="User-Name"]');
+    if (!node) return { name: "", handle: "" };
+    const text = clean(node.textContent);
+    const handleMatch = text.match(/@\w+/);
+    const handle = handleMatch ? handleMatch[0] : "";
+    const name = handle ? clean(text.split(handle)[0]) : text;
+    return { name, handle };
+  };
+
+  const readArticle = (article) => {
+    const viewportHeight = window.innerHeight || 0;
+    const rect = article.getBoundingClientRect();
+    const onScreen = rect.bottom > 0 && rect.top < viewportHeight;
+
+    const quoteRoot = Array.from(article.querySelectorAll('[role="link"]')).find(
+      (candidate) =>
+        candidate.querySelector('[data-testid="tweetText"]') &&
+        candidate.querySelector('[data-testid="User-Name"]')
+    );
+    const mainRoot = article.cloneNode(true);
+    if (quoteRoot) {
+      const quoteClone = Array.from(mainRoot.querySelectorAll('[role="link"]')).find(
+        (candidate) =>
+          candidate.querySelector('[data-testid="tweetText"]') &&
+          candidate.querySelector('[data-testid="User-Name"]')
+      );
+      quoteClone?.remove();
+    }
+
+    const timeNode = article.querySelector("time[datetime]");
+    const permalink = timeNode?.closest('a[href*="/status/"]')?.getAttribute("href") || "";
+    const socialContext = clean(article.querySelector('[data-testid="socialContext"]')?.textContent);
+    const replyingTo = clean(
+      Array.from(article.querySelectorAll("div"))
+        .map((div) => div.textContent)
+        .find((text) => /^Replying to @/.test(clean(text)))
+    );
+
+    const photos = Array.from(article.querySelectorAll('[data-testid="tweetPhoto"] img'))
+      .filter((img) => !quoteRoot || !quoteRoot.contains(img))
+      .map((img) => clean(img.getAttribute("alt")))
+      .filter((alt) => alt && alt !== "Image");
+    const photoCount = article.querySelectorAll('[data-testid="tweetPhoto"]').length;
+    const hasVideo = Boolean(article.querySelector('[data-testid="videoPlayer"], video'));
+    const card = article.querySelector('[data-testid="card.wrapper"]');
+    const cardLink = card?.querySelector("a[href]");
+
+    const text = tweetText(mainRoot) || (mainRoot.querySelector('[data-testid="tweetText"]') ? "" : clean(mainRoot.innerText).slice(0, 2000));
+
+    return {
+      onScreen,
+      focal: article.getAttribute("tabindex") === "-1",
+      author: author(mainRoot),
+      time: timeNode?.getAttribute("datetime") || "",
+      relativeTime: clean(timeNode?.textContent),
+      text,
+      permalink: permalink ? new URL(permalink, location.origin).href : "",
+      socialContext,
+      replyingTo,
+      replies: metric(article, "reply"),
+      reposts: metric(article, "retweet"),
+      likes: metric(article, "like"),
+      views: views(article),
+      photoCount,
+      photoAlts: photos,
+      hasVideo,
+      card: cardLink
+        ? { url: cardLink.getAttribute("href") || "", text: clean(card.textContent).slice(0, 200) }
+        : null,
+      quote: quoteRoot
+        ? { author: author(quoteRoot), text: tweetText(quoteRoot) }
+        : null
+    };
+  };
+
+  // X's logged-in app tags posts with data-testid="tweet"; fall back to bare articles
+  // so a markup change still yields readable text instead of an empty capture.
+  const taggedArticles = document.querySelectorAll('article[data-testid="tweet"]');
+  const articles = Array.from(taggedArticles.length ? taggedArticles : document.querySelectorAll("article"))
+    .map((article) => ({ article, top: article.getBoundingClientRect().top }))
+    .sort((a, b) => a.top - b.top)
+    .slice(0, MAX_POSTS)
+    .map(({ article }) => article);
+
+  const activeTab = clean(document.querySelector('[role="tab"][aria-selected="true"]')?.textContent);
+  const path = location.pathname;
+  let label = "page";
+  let kind = "page";
+  if (path === "/home") {
+    kind = "home";
+    label = activeTab ? `Home · ${activeTab}` : "Home";
+  } else if (/\/status\/\d+/.test(path)) {
+    kind = "post";
+    label = "Post";
+  } else if (path.startsWith("/search")) {
+    kind = "search";
+    label = `Search: ${new URLSearchParams(location.search).get("q") || ""}`;
+  } else if (path === "/notifications") {
+    kind = "notifications";
+    label = "Notifications";
+  } else if (path === "/i/bookmarks") {
+    kind = "bookmarks";
+    label = "Bookmarks";
+  } else if (/^\/[A-Za-z0-9_]+\/?$/.test(path)) {
+    kind = "profile";
+    label = `Profile ${path.replace(/\//g, "")}`;
+  } else if (path.startsWith("/i/lists/")) {
+    kind = "list";
+    label = `List · ${clean(document.title)}`;
+  }
+
+  return {
+    context: { kind, label, url: location.href, title: document.title, capturedAt: new Date().toISOString() },
+    posts: articles.map(readArticle).filter((post) => post.text || post.quote || post.photoCount || post.hasVideo)
+  };
+}
+
+function isLinkedInUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "linkedin.com" || url.hostname.endsWith(".linkedin.com");
+  } catch {
+    return false;
+  }
+}
+
+function feedSiteFor(value) {
+  if (isXUrl(value)) return "x";
+  if (isYouTubeUrl(value)) return "youtube";
+  if (isLinkedInUrl(value)) return "linkedin";
+  return "";
+}
+
+// Function declarations are hoisted, so the extractors defined below are available here.
+const FEED_EXTRACTORS = Object.freeze({
+  x: { extract: extractXFeed, format: formatXFeedMarkdown },
+  youtube: { extract: extractYouTubeFeed, format: formatYouTubeFeedMarkdown },
+  linkedin: { extract: extractLinkedInFeed, format: formatLinkedInMarkdown }
+});
+
+// Runs inside the LinkedIn page. Must stay self-contained: no closures over background scope.
+function extractLinkedInFeed() {
+  const MAX_ITEMS = 120;
+  const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const viewportHeight = window.innerHeight || 0;
+  const isOnScreen = (element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.bottom > 0 && rect.top < viewportHeight;
+  };
+  const absolute = (href) => {
+    try {
+      return href ? new URL(href, location.origin).href.split("?")[0] : "";
+    } catch {
+      return "";
+    }
+  };
+  const textLines = (element) =>
+    String(element?.innerText || "")
+      .split("\n")
+      .map(clean)
+      .filter(Boolean);
+  const first = (root, selectors) => {
+    for (const selector of selectors) {
+      const node = root?.querySelector(selector);
+      const text = clean(node?.innerText || node?.textContent);
+      if (text) return text;
+    }
+    return "";
+  };
+
+  const path = location.pathname;
+  const params = new URLSearchParams(location.search);
+  const isJobs = path.startsWith("/jobs/");
+  const posts = [];
+  let current = null;
+  let kind = "page";
+  let label = clean(document.title).replace(/ \| LinkedIn$/, "") || "LinkedIn";
+  let search = null;
+
+  if (isJobs) {
+    kind = "jobs";
+    // Search context: keywords/location from the URL, active filter pills from the bar.
+    const keywords = params.get("keywords") || clean(document.querySelector('input[id*="jobs-search-box-keyword"]')?.value);
+    const locationText = params.get("location") || clean(document.querySelector('input[id*="jobs-search-box-location"]')?.value);
+    const activeFilters = Array.from(document.querySelectorAll('button[aria-pressed="true"], button[aria-checked="true"], .search-reusables__filter-pill-button--selected, li.search-reusables__filter-list-item [aria-pressed="true"]'))
+      .map((button) => clean(button.innerText))
+      .filter((text) => text && text.length < 60);
+    const resultCount = clean(document.querySelector('.jobs-search-results-list__subtitle, .jobs-search-results-list__text, [class*="results-context"], small.jobs-search-results-list__text')?.innerText);
+    search = { keywords, location: locationText, filters: [...new Set(activeFilters)], resultCount };
+    label = keywords ? `Jobs: ${keywords}${locationText ? ` in ${locationText}` : ""}` : "Jobs";
+
+    // Result list. LinkedIn's 2026 jobs UI has obfuscated classes but keeps a stable
+    // componentkey="job-card-component-ref-<jobId>" on each card; older markup used
+    // data-job-id / /jobs/view/ links. Each <p> in a card is one field; aria-hidden spans
+    // hold the visible text (the sibling span is a screen-reader duplicate).
+    const fieldText = (p) => clean(p.querySelector('span[aria-hidden="true"]')?.innerText || p.innerText);
+    const seen = new Set();
+    const cardNodes = Array.from(document.querySelectorAll('[componentkey^="job-card-component-ref-"], li[data-occludable-job-id], [data-job-id], .job-card-container'))
+      .filter((card) => !card.parentElement?.closest('[componentkey^="job-card-component-ref-"], li[data-occludable-job-id], [data-job-id], .job-card-container'));
+    for (const card of cardNodes) {
+      const jobId = (card.getAttribute("componentkey") || "").replace("job-card-component-ref-", "")
+        || card.getAttribute("data-occludable-job-id") || card.getAttribute("data-job-id")
+        || (card.querySelector('a[href*="/jobs/view/"]')?.getAttribute("href") || "").match(/\/jobs\/view\/(\d+)/)?.[1] || "";
+      if (!jobId || seen.has(jobId)) continue;
+      const fields = Array.from(card.querySelectorAll("p")).map(fieldText).filter((text) => text && text !== "·");
+      const lines = fields.length ? fields : textLines(card);
+      const title = lines[0] || "";
+      if (!title) continue;
+      seen.add(jobId);
+      const rest = lines.slice(1).filter((line) => line !== title);
+      const footer = rest.filter((line) => /ago|Easy Apply|Promoted|Viewed|Applied|alumni|connection|Actively|review|applicants?|match|Verified/i.test(line));
+      const body = rest.filter((line) => !footer.includes(line));
+      posts.push({
+        onScreen: isOnScreen(card),
+        active: params.get("currentJobId") === jobId || /^Selected,/.test(clean(card.querySelector("p span")?.innerText)),
+        title,
+        company: body[0] || "",
+        location: body[1] || "",
+        notes: [...new Set(footer)].join(" · "),
+        url: `https://www.linkedin.com/jobs/view/${jobId}/`
+      });
+      if (posts.length >= MAX_ITEMS) break;
+    }
+
+    // Opened job. document.title is "Job title | Company | LinkedIn"; the pane itself is the
+    // smallest ancestor of the "About the job" heading that also contains that title.
+    const titleParts = clean(document.title).split(" | ").map(clean);
+    const titleFromTab = titleParts.length >= 3 ? titleParts[0] : "";
+    const companyFromTab = titleParts.length >= 3 ? titleParts[1] : "";
+    const headings = Array.from(document.querySelectorAll("h1, h2"));
+    const aboutJobHeading = headings.find((heading) => /^About the job$/i.test(clean(heading.innerText)));
+    const listRoot = document.querySelector('[data-testid="lazy-column"]');
+    const outsideChrome = (element) => !element.closest("nav") && !(listRoot && listRoot.contains(element));
+    let detail = document.querySelector(".scaffold-layout__detail, .jobs-search__job-details--container, .jobs-details, .job-view-layout");
+    if (!detail && aboutJobHeading) {
+      // The pane has no stable class. Anchor on its header line ("Saudi Arabia · 6 days ago ·
+      // Over 100 applicants") and climb from the "About the job" heading until both are inside.
+      // The title alone is not a safe anchor: the description body usually repeats it.
+      const anchor =
+        Array.from(document.querySelectorAll("p, span, div, h1, h2, h3"))
+          .filter((element) => outsideChrome(element) && element.innerText && element.innerText.length < 160
+            && /applicants?|clicked apply|be among the first|\b\d+\s\w+\sago\b/i.test(clean(element.innerText)))
+          .sort((a, b) => a.innerText.length - b.innerText.length)[0]
+        || Array.from(document.querySelectorAll("p, span, div, h1, h2, h3, a"))
+          .filter((element) => outsideChrome(element) && titleFromTab && clean(element.innerText) === titleFromTab)
+          .sort((a, b) => a.innerText.length - b.innerText.length)[0]
+        || null;
+      let node = aboutJobHeading.parentElement;
+      while (node && node !== document.body && !(anchor && node.contains(anchor))) node = node.parentElement;
+      detail = node && node !== document.body && !(listRoot && node.contains(listRoot)) ? node : aboutJobHeading.parentElement;
+    }
+    if (!detail && path.startsWith("/jobs/view/")) detail = document.querySelector("main");
+
+    if (detail) {
+      const detailLines = textLines(detail);
+      const detailTitle = titleFromTab || clean(headings.find((heading) => detail.contains(heading) && clean(heading.innerText))?.innerText) || detailLines[1] || "";
+      const titleIndex = detailLines.findIndex((line) => line === detailTitle);
+      const header = titleIndex >= 0 ? detailLines.slice(titleIndex + 1, titleIndex + 10) : detailLines.slice(0, 10);
+      const metaLine = header.find((line) => /ago|applicant|Reposted/i.test(line)) || "";
+      const sectionIndex = (pattern) => detailLines.findIndex((line) => pattern.test(line));
+      const aboutJob = sectionIndex(/^About the job$/i);
+      const aboutCompany = sectionIndex(/^About the company$/i);
+      const nextHeading = (from) => {
+        const index = detailLines.findIndex((line, i) => i > from && /^(Unlock hiring insights|About the company|Similar jobs|People also viewed|Job search faster|Set alert)/i.test(line));
+        return index === -1 ? detailLines.length : index;
+      };
+      current = {
+        title: detailTitle,
+        company: companyFromTab || header.find((line) => line !== metaLine && !/Remote|Hybrid|On-site|Full-time|Part-time|Contract|Easy Apply|Save|insight/i.test(line)) || "",
+        location: metaLine.split(/\s[·•]\s/)[0] || "",
+        posted: (metaLine.match(/(Reposted\s)?\d+\s\w+\sago/i) || [""])[0],
+        applicants: (metaLine.match(/[^·•]*applicants?[^·•]*/i) || [""])[0].trim(),
+        insights: header.filter((line) => /^(Remote|Hybrid|On-site|Full-time|Part-time|Contract|Internship|Temporary|Entry level|Associate|Mid-Senior level|Director|Executive)\b/i.test(line) || /match|qualifications|response insight/i.test(line)),
+        easyApply: /Easy Apply/i.test(clean(detail.innerText)),
+        description: aboutJob >= 0
+          ? detailLines.slice(aboutJob + 1, nextHeading(aboutJob)).filter((line) => !/^(…\s*more|Show more|Show less)$/i.test(line)).join("\n").slice(0, 12_000)
+          : "",
+        descriptionTruncated: detailLines.some((line) => /^…\s*more$/i.test(line)),
+        aboutCompany: aboutCompany >= 0 ? detailLines.slice(aboutCompany + 1, Math.min(aboutCompany + 14, nextHeading(aboutCompany))).join("\n").replace(/\n?(Show more|…?\s*more)$/i, "").slice(0, 1500) : "",
+        url: path.startsWith("/jobs/view/") ? absolute(location.href) : (params.get("currentJobId") ? `https://www.linkedin.com/jobs/view/${params.get("currentJobId")}/` : "")
+      };
+    }
+  } else {
+    // Home feed and profile activity: one block per post.
+    kind = path.startsWith("/feed") ? "feed" : "page";
+    label = kind === "feed" ? "Feed" : label;
+    const postNodes = Array.from(document.querySelectorAll('div[data-id^="urn:li:activity"], div[data-urn^="urn:li:activity"], .feed-shared-update-v2'))
+      .filter((node) => !node.parentElement?.closest('div[data-id^="urn:li:activity"], div[data-urn^="urn:li:activity"], .feed-shared-update-v2'));
+    const seen = new Set();
+    for (const node of postNodes) {
+      const urn = node.getAttribute("data-id") || node.getAttribute("data-urn") || "";
+      if (urn && seen.has(urn)) continue;
+      if (urn) seen.add(urn);
+      const actor = first(node, [".update-components-actor__title span[aria-hidden='true']", ".update-components-actor__name", ".update-components-actor__title"]);
+      const headline = first(node, [".update-components-actor__description"]);
+      const text = String(node.querySelector(".update-components-text, .feed-shared-update-v2__description, .update-components-update-v2__commentary")?.innerText || "")
+        .replace(/…?\s*(see more|more)$/i, "")
+        .trim()
+        .slice(0, 3000);
+      if (!actor && !text) continue;
+      const reactions = first(node, [".social-details-social-counts__reactions-count", "[class*='reactions-count']"]);
+      const comments = first(node, [".social-details-social-counts__comments", "[class*='comments'] button"]);
+      const age = first(node, [".update-components-actor__sub-description span[aria-hidden='true']", ".update-components-actor__sub-description"]);
+      const context = first(node, [".update-components-header__text-view", ".update-components-header"]);
+      posts.push({
+        onScreen: isOnScreen(node),
+        actor,
+        headline,
+        age,
+        context,
+        text,
+        reactions,
+        comments,
+        hasMedia: Boolean(node.querySelector(".update-components-image, .update-components-video, video, .update-components-article")),
+        url: urn.match(/\d+$/) ? `https://www.linkedin.com/feed/update/${urn}/` : ""
+      });
+      if (posts.length >= MAX_ITEMS) break;
+    }
+  }
+
+  const debug = !posts.length && !current
+    ? `jobLinks=${document.querySelectorAll('a[href*="/jobs/view/"]').length} h1=${document.querySelectorAll("h1").length} li=${document.querySelectorAll("li").length} main=${Boolean(document.querySelector("main"))} title="${clean(document.title).slice(0, 80)}" path=${path}`
+    : "";
+
+  return {
+    context: { kind, label, url: location.href, title: document.title, capturedAt: new Date().toISOString() },
+    search,
+    current,
+    posts,
+    debug
+  };
+}
+
+function formatLinkedInMarkdown(result) {
+  const { context, search, current, posts } = result;
+  const onScreen = posts.filter((post) => post.onScreen).length;
+  const lines = [
+    "# LinkedIn snapshot",
+    "",
+    `- Page: ${context.label}`,
+    `- URL: ${context.url}`,
+    `- Captured: ${context.capturedAt}`,
+    ""
+  ];
+
+  if (context.kind === "jobs") {
+    if (search) {
+      lines.push(
+        "## Search",
+        "",
+        `- Keywords: ${search.keywords || "(none)"}`,
+        `- Location: ${search.location || "(none)"}`,
+        `- Active filters: ${search.filters.length ? search.filters.join(", ") : "(none)"}`,
+        search.resultCount ? `- Results: ${search.resultCount}` : "",
+        ""
+      );
+    }
+    if (current) {
+      lines.push(
+        "## Opened job",
+        "",
+        `**${current.title}**`,
+        [current.company, current.location, current.posted].filter(Boolean).join(" · "),
+        [current.applicants, current.easyApply ? "Easy Apply" : ""].filter(Boolean).join(" · "),
+        current.insights.length ? `Insights: ${current.insights.join(" · ")}` : "",
+        current.url ? `URL: ${current.url}` : "",
+        ""
+      );
+      if (current.description) {
+        lines.push("### Description", "", current.description, "");
+        if (current.descriptionTruncated) lines.push("_(Description was collapsed on the page; click “…more” before capturing to include all of it.)_", "");
+      }
+      if (current.aboutCompany) lines.push("### About the company", "", current.aboutCompany, "");
+    }
+    lines.push(
+      `## Result list (${posts.length} loaded, ${onScreen} on screen, listed top to bottom)`,
+      ""
+    );
+    posts.forEach((job, index) => {
+      const flags = [job.active ? "[opened]" : "", job.onScreen ? "[on screen]" : ""].filter(Boolean).join(" ");
+      lines.push(
+        `${index + 1}. **${job.title}**${flags ? ` ${flags}` : ""}`,
+        `   ${[job.company, job.location].filter(Boolean).join(" · ")}`,
+        job.notes ? `   ${job.notes}` : "",
+        job.url ? `   ${job.url}` : "",
+        ""
+      );
+    });
+  } else {
+    lines.push(
+      `## Posts (${posts.length} loaded, ${onScreen} on screen, listed top to bottom)`,
+      ""
+    );
+    posts.forEach((post, index) => {
+      lines.push(
+        `## ${index + 1}. ${post.actor || "Unknown"}${post.headline ? ` — ${post.headline}` : ""}${post.age ? ` · ${post.age}` : ""}${post.onScreen ? " [on screen]" : ""}`
+      );
+      if (post.context) lines.push(`_${post.context}_`);
+      if (post.text) lines.push("", post.text.split("\n").map((line) => `> ${line}`).join("\n"));
+      const meta = [post.reactions ? `${post.reactions} reactions` : "", post.comments, post.hasMedia ? "has media" : ""].filter(Boolean);
+      if (meta.length) lines.push("", meta.join(" · "));
+      if (post.url) lines.push(`Post: ${post.url}`);
+      lines.push("");
+    });
+  }
+
+  return lines.filter((line) => line !== undefined).join("\n").slice(0, 400_000);
+}
+
+// Runs inside the YouTube page. Must stay self-contained: no closures over background scope.
+function extractYouTubeFeed() {
+  const MAX_VIDEOS = 150;
+  const MAX_COMMENTS = 30;
+  const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const viewportHeight = window.innerHeight || 0;
+  const isOnScreen = (element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.bottom > 0 && rect.top < viewportHeight;
+  };
+  const absolute = (href) => {
+    try {
+      return href ? new URL(href, location.origin).href : "";
+    } catch {
+      return "";
+    }
+  };
+
+  // YouTube mixes legacy ytd-* renderers with newer *-view-model cards; cover both.
+  const CARD_SELECTOR = [
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-playlist-video-renderer",
+    "ytd-reel-item-renderer",
+    "yt-lockup-view-model",
+    "ytm-shorts-lockup-view-model",
+    "ytm-shorts-lockup-view-model-v2"
+  ].join(",");
+
+  const readCard = (card) => {
+    const link = card.querySelector('a[href*="/watch?v="], a[href*="/shorts/"], a[href*="/playlist?list="]');
+    const url = absolute(link?.getAttribute("href"));
+    const titleNode =
+      card.querySelector("#video-title, a#video-title-link, h3 a, h3, .yt-lockup-metadata-view-model__title, .shortsLockupViewModelHostMetadataTitle, [title]");
+    const title = clean(titleNode?.getAttribute("title") || titleNode?.textContent || link?.getAttribute("title") || link?.getAttribute("aria-label"));
+    const channelNode = card.querySelector(
+      "ytd-channel-name #text, #channel-name #text, #channel-name, .yt-content-metadata-view-model__metadata-text, .yt-lockup-byline-view-model"
+    );
+    const channel = clean(channelNode?.textContent);
+    const durationNode = card.querySelector(
+      "ytd-thumbnail-overlay-time-status-renderer, .badge-shape-wiz__text, .yt-badge-shape__text, [class*='time-status']"
+    );
+    const duration = clean(durationNode?.textContent);
+    // Newer lockup cards expose no stable ids, but their text lines are consistent:
+    // [duration], title, channel, views, age. Fall back to those when selectors miss.
+    const lines = clean(card.innerText).length
+      ? card.innerText.split("\n").map(clean).filter(Boolean)
+      : [];
+    const isDuration = (line) => /^(\d+:)?\d{1,2}:\d{2}$/.test(line);
+    const isCount = (line) => /^[\d.,]+[KMB]?( views?| watching)?$/i.test(line);
+    const isAge = (line) => /\b(ago|streamed|premiere[sd]?|scheduled)\b/i.test(line) || /^\d+(mo|y|d|h|w|m)? ago$/i.test(line);
+    const titleIndex = lines.findIndex((line) => line === title);
+    const lineChannel = titleIndex >= 0
+      ? lines.slice(titleIndex + 1).find((line) => !isDuration(line) && !isCount(line) && !isAge(line) && !/^(LIVE|NEW|Verified|•)$/i.test(line)) || ""
+      : "";
+    const views = lines.find((line) => isCount(line) && line !== title) || "";
+    const age = lines.find((line) => isAge(line) && line !== title) || "";
+    const lineDuration = lines.find(isDuration) || "";
+    const isShort = /\/shorts\//.test(url) || /SHORTS/i.test(card.tagName);
+    const isLive = lines.some((line) => /^LIVE$/i.test(line) || /watching now/i.test(line));
+
+    return {
+      onScreen: isOnScreen(card),
+      title,
+      url,
+      channel: channel && channel !== title ? channel : lineChannel,
+      meta: [views ? (/view|watch/i.test(views) ? views : `${views} views`) : "", age].filter(Boolean).join(" · "),
+      duration: isDuration(duration) ? duration : lineDuration,
+      isShort,
+      isLive
+    };
+  };
+
+  const seen = new Set();
+  const cards = Array.from(document.querySelectorAll(CARD_SELECTOR))
+    .filter((card) => !card.parentElement?.closest(CARD_SELECTOR))
+    .map((card) => ({ card, top: card.getBoundingClientRect().top }))
+    .sort((a, b) => a.top - b.top)
+    .map(({ card }) => readCard(card))
+    .filter((video) => {
+      if (!video.title || !video.url) return false;
+      const key = video.url.replace(/[&?]pp=[^&]*/, "");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, MAX_VIDEOS);
+
+  const path = location.pathname;
+  const params = new URLSearchParams(location.search);
+  const selectedChip = clean(
+    document.querySelector('yt-chip-cloud-chip-renderer[selected], yt-chip-cloud-chip-renderer[aria-selected="true"], [role="tab"][aria-selected="true"]')?.textContent
+  );
+  let kind = "page";
+  let label = clean(document.title).replace(/ - YouTube$/, "") || "YouTube";
+  let current = null;
+
+  if (path === "/watch") {
+    kind = "watch";
+    const title = clean(
+      document.querySelector("ytd-watch-metadata h1, h1.ytd-video-primary-info-renderer, #title h1")?.textContent
+    );
+    const owner = document.querySelector("ytd-video-owner-renderer, #owner");
+    // The owner block renders the channel name twice (visible + hidden); collapse "X X" to "X".
+    const rawChannel = clean(owner?.querySelector("#channel-name, ytd-channel-name")?.textContent);
+    const half = rawChannel.slice(0, Math.floor(rawChannel.length / 2)).trim();
+    const channel = half && rawChannel === `${half} ${half}` ? half : rawChannel;
+    const subscribers = clean(owner?.querySelector("#owner-sub-count")?.textContent);
+    // #bottom-row holds "1.8B views · 16y ago · #tags" on its first line, then the description.
+    const bottomLines = String(document.querySelector("#bottom-row")?.innerText || "")
+      .split("\n")
+      .map(clean)
+      .filter((line) => line && !/^(more|Show more|…more)$/i.test(line));
+    const info = bottomLines[0] || "";
+    const description = bottomLines.slice(1).join("\n").slice(0, 1500);
+    const likes = clean(
+      document.querySelector('like-button-view-model button, #segmented-like-button button, button[aria-label*="like" i]')?.getAttribute("aria-label")
+    );
+    const video = document.querySelector("video");
+    const comments = Array.from(document.querySelectorAll("ytd-comment-thread-renderer"))
+      .slice(0, MAX_COMMENTS)
+      .map((thread) => ({
+        author: clean(thread.querySelector("#author-text")?.textContent),
+        text: clean(thread.querySelector("#content-text")?.innerText).slice(0, 600),
+        likes: clean(thread.querySelector("#vote-count-middle")?.textContent),
+        age: clean(thread.querySelector(".published-time-text, #published-time-text")?.textContent)
+      }))
+      .filter((comment) => comment.text);
+    const commentCount = clean(document.querySelector("ytd-comments-header-renderer #count, #comments #count")?.textContent);
+    current = {
+      title,
+      channel,
+      subscribers,
+      info,
+      likes,
+      description,
+      url: location.href,
+      position: video && Number.isFinite(video.currentTime)
+        ? { seconds: Math.floor(video.currentTime), duration: Math.floor(video.duration || 0), paused: video.paused }
+        : null,
+      commentCount,
+      comments
+    };
+    label = `Watching ${title || params.get("v") || ""}`;
+  } else if (path === "/") {
+    kind = "home";
+    label = selectedChip && selectedChip !== "All" ? `Home · ${selectedChip}` : "Home";
+  } else if (path === "/feed/subscriptions") {
+    kind = "subscriptions";
+    label = "Subscriptions";
+  } else if (path === "/results") {
+    kind = "search";
+    label = `Search: ${params.get("search_query") || ""}`;
+  } else if (path === "/feed/history") {
+    kind = "history";
+    label = "History";
+  } else if (path === "/playlist") {
+    kind = "playlist";
+  } else if (path.startsWith("/shorts/")) {
+    kind = "shorts";
+    label = `Shorts ${clean(document.title).replace(/ - YouTube$/, "")}`;
+  } else if (/^\/(@[^/]+|channel\/[^/]+|c\/[^/]+)/.test(path)) {
+    kind = "channel";
+    label = `Channel ${path.split("/")[1]}${selectedChip ? ` · ${selectedChip}` : ""}`;
+  }
+
+  return {
+    context: { kind, label, url: location.href, title: document.title, capturedAt: new Date().toISOString(), selectedChip },
+    current,
+    posts: cards
+  };
+}
+
+function formatYouTubeFeedMarkdown(result) {
+  const { context, current, posts } = result;
+  const onScreen = posts.filter((video) => video.onScreen).length;
+  const lines = [
+    "# YouTube snapshot",
+    "",
+    `- Page: ${context.label}`,
+    `- URL: ${context.url}`,
+    `- Captured: ${context.capturedAt}`,
+    ""
+  ];
+
+  if (current) {
+    const position = current.position
+      ? `${formatSeconds(current.position.seconds)} / ${formatSeconds(current.position.duration)}${current.position.paused ? " (paused)" : " (playing)"}`
+      : "";
+    lines.push(
+      "## Currently watching",
+      "",
+      `**${current.title || "Untitled video"}**`,
+      [current.channel, current.subscribers].filter(Boolean).join(" · "),
+      [current.info, current.likes].filter(Boolean).join(" · "),
+      position ? `Position: ${position}` : "",
+      `URL: ${current.url}`,
+      ""
+    );
+    if (current.description) lines.push("Description:", "", current.description.split("\n").map((line) => `> ${line}`).join("\n"), "");
+    if (current.comments.length) {
+      lines.push(`## Loaded comments${current.commentCount ? ` (${current.commentCount} total)` : ""}`, "");
+      current.comments.forEach((comment, index) => {
+        lines.push(
+          `${index + 1}. **${comment.author || "Unknown"}**${comment.age ? ` · ${comment.age}` : ""}${comment.likes ? ` · ${comment.likes} likes` : ""}`,
+          `   ${comment.text}`,
+          ""
+        );
+      });
+    }
+  }
+
+  const heading = context.kind === "watch" ? "Recommended next" : "Videos";
+  lines.push(
+    `## ${heading} (${posts.length} loaded, ${onScreen} on screen, listed top to bottom)`,
+    "",
+    "Videos marked [on screen] were visible in the viewport at capture time.",
+    ""
+  );
+  posts.forEach((video, index) => {
+    const bits = [
+      video.channel,
+      video.meta,
+      video.duration,
+      video.isShort ? "Short" : "",
+      video.isLive ? "LIVE" : ""
+    ].filter(Boolean);
+    lines.push(
+      `${index + 1}. **${video.title}**${video.onScreen ? " [on screen]" : ""}`,
+      bits.length ? `   ${bits.join(" · ")}` : "",
+      `   ${video.url}`,
+      ""
+    );
+  });
+
+  return lines.filter((line) => line !== undefined).join("\n").slice(0, 400_000);
+}
+
+function formatSeconds(total) {
+  const seconds = Math.max(0, Number(total) || 0);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function formatXFeedMarkdown(result) {
+  const { context, posts } = result;
+  const onScreen = posts.filter((post) => post.onScreen).length;
+  const lines = [
+    "# X feed snapshot",
+    "",
+    `- Page: ${context.label}`,
+    `- URL: ${context.url}`,
+    `- Captured: ${context.capturedAt}`,
+    `- Posts loaded: ${posts.length} (${onScreen} currently on screen, listed top to bottom)`,
+    "",
+    "Posts marked [on screen] were visible in the viewport at capture time.",
+    ""
+  ];
+
+  posts.forEach((post, index) => {
+    const who = post.author.handle
+      ? `${post.author.name || post.author.handle} (${post.author.handle})`
+      : post.author.name || "Unknown";
+    const stats = [
+      post.relativeTime,
+      post.replies ? `${post.replies} replies` : "",
+      post.reposts ? `${post.reposts} reposts` : "",
+      post.likes ? `${post.likes} likes` : "",
+      post.views ? `${post.views} views` : ""
+    ].filter(Boolean);
+    const flags = [post.focal ? "[opened post]" : "", post.onScreen ? "[on screen]" : ""].filter(Boolean);
+
+    lines.push(`## ${index + 1}. ${who}${stats.length ? ` · ${stats.join(" · ")}` : ""}${flags.length ? ` ${flags.join(" ")}` : ""}`);
+    if (post.socialContext) lines.push(`_${post.socialContext}_`);
+    if (post.replyingTo) lines.push(`_${post.replyingTo}_`);
+    if (post.text) lines.push("", post.text.split("\n").map((line) => `> ${line}`).join("\n"));
+    if (post.quote) {
+      const quoteWho = post.quote.author.handle
+        ? `${post.quote.author.name || post.quote.author.handle} (${post.quote.author.handle})`
+        : post.quote.author.name || "Unknown";
+      lines.push("", `Quoting ${quoteWho}:`, post.quote.text.split("\n").map((line) => `>> ${line}`).join("\n"));
+    }
+    const media = [];
+    if (post.photoCount) {
+      media.push(`${post.photoCount} photo${post.photoCount === 1 ? "" : "s"}${post.photoAlts.length ? ` (alt: ${post.photoAlts.join(" | ")})` : ""}`);
+    }
+    if (post.hasVideo) media.push("video");
+    if (media.length) lines.push("", `Media: ${media.join(", ")}`);
+    if (post.card?.url) lines.push(`Link card: ${post.card.text} — ${post.card.url}`);
+    if (post.permalink) lines.push(`Post: ${post.permalink}`);
+    lines.push("");
+  });
+
+  return lines.join("\n").slice(0, 400_000);
 }
 
 function isYouTubeWatchUrl(value) {
